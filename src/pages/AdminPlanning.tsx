@@ -14,7 +14,7 @@ import { IconePlus } from '../components/Icones'
 import { supabase } from '../lib/supabase'
 import type { Horaire, Profil } from '../lib/types'
 import { couleurDe, type Couleur } from '../lib/couleurs'
-import { formatPause, heureLocale, jourLocal } from '../lib/dates'
+import { heureLocale, jourLocal, textePause } from '../lib/dates'
 
 export default function AdminPlanning() {
   const calendrier = useRef<FullCalendar>(null)
@@ -49,7 +49,7 @@ export default function AdminPlanning() {
   const chargerEvenements = useCallback(async (info: EventSourceFuncArg): Promise<EventInput[]> => {
     const { data, error } = await supabase
       .from('shifts')
-      .select('id, employe_id, debut, fin, note, pause_minutes')
+      .select('id, employe_id, debut, fin, note, pause_minutes, pause_debut, pause_fin')
       .lt('debut', info.endStr)
       .gt('fin', info.startStr)
       .order('debut')
@@ -67,7 +67,7 @@ export default function AdminPlanning() {
         const nom = p ? `${p.prenom} ${p.nom.charAt(0)}.` : 'Employé'
         return {
           id: h.id,
-          title: [nom, h.note, h.pause_minutes ? `pause ${formatPause(h.pause_minutes)}` : '']
+          title: [nom, h.note, textePause(h)]
             .filter(Boolean)
             .join(' · '),
           start: h.debut,
@@ -75,7 +75,7 @@ export default function AdminPlanning() {
           backgroundColor: c.fond,
           borderColor: c.trait,
           textColor: c.texte,
-          extendedProps: { horaire: h },
+          extendedProps: { horaire: h, pause: h.pause_debut ? { debut: h.pause_debut, fin: h.pause_fin } : null },
         }
       })
   }, [])
@@ -103,7 +103,8 @@ export default function AdminPlanning() {
       jour: jourLocal(d),
       debut: debut ? heureLocale(debut) : '09:00',
       fin: fin ? heureLocale(fin) : '17:00',
-      pause: 0,
+      pauseDebut: '',
+      pauseFin: '',
       note: '',
     })
   }
@@ -124,20 +125,33 @@ export default function AdminPlanning() {
       jour: jourLocal(d),
       debut: heureLocale(d),
       fin: heureLocale(new Date(h.fin)),
-      pause: h.pause_minutes,
+      pauseDebut: h.pause_debut ? heureLocale(new Date(h.pause_debut)) : '',
+      pauseFin: h.pause_fin ? heureLocale(new Date(h.pause_fin)) : '',
       note: h.note ?? '',
     })
   }
 
-  // Glisser-déposer ou étirer un horaire
+  // Glisser-déposer ou étirer un horaire : la pause suit le déplacement.
   async function surDeplacement(info: EventChangeArg) {
+    const h = info.event.extendedProps.horaire as Horaire
+    const decalage = info.event.start!.getTime() - info.oldEvent.start!.getTime()
+    const decaler = (iso: string | null) => (iso ? new Date(new Date(iso).getTime() + decalage).toISOString() : null)
     const { error } = await supabase
       .from('shifts')
-      .update({ debut: info.event.start!.toISOString(), fin: info.event.end!.toISOString() })
+      .update({
+        debut: info.event.start!.toISOString(),
+        fin: info.event.end!.toISOString(),
+        pause_debut: decaler(h.pause_debut),
+        pause_fin: decaler(h.pause_fin),
+      })
       .eq('id', info.event.id)
     if (error) {
       info.revert()
-      setErreur("Déplacement impossible. L'horaire est revenu à sa place.")
+      setErreur(
+        h.pause_debut
+          ? "Modification impossible : la pause doit rester dans l'horaire. Ouvrez l'horaire pour la déplacer."
+          : "Déplacement impossible. L'horaire est revenu à sa place.",
+      )
     } else {
       rafraichir()
     }

@@ -18,16 +18,22 @@ export function construirePlage(jour: string, debut: string, fin: string) {
   return { debut: d, fin: f }
 }
 
+/** Place une heure (ex. "01:30") dans le service : si elle est avant le début, c'est le lendemain. */
+export function heureDansService(jour: string, heure: string, debutService: Date) {
+  const d = new Date(`${jour}T${heure}`)
+  if (d < debutService) d.setDate(d.getDate() + 1)
+  return d
+}
+
 /** Durée travaillée en heures (pause déduite) */
 export function dureeHeures(debut: Date, fin: Date, pauseMinutes = 0) {
   return (fin.getTime() - debut.getTime()) / 3_600_000 - pauseMinutes / 60
 }
 
-export function formatPause(minutes: number) {
-  if (!minutes) return ''
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  return h ? (m ? `${h} h ${deux(m)}` : `${h} h`) : `${m} min`
+/** "pause 13:00 – 13:30" pour un horaire, ou "" s'il n'a pas de pause */
+export function textePause(h: { pause_debut: string | null; pause_fin: string | null }) {
+  if (!h.pause_debut || !h.pause_fin) return ''
+  return `pause ${heureLocale(new Date(h.pause_debut))} – ${heureLocale(new Date(h.pause_fin))}`
 }
 
 export function formatHeures(h: number) {

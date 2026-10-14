@@ -16,4 +16,6 @@ export interface Horaire {
   fin: string
   note: string | null
   pause_minutes: number
+  pause_debut: string | null
+  pause_fin: string | null
 }

@@ -6,7 +6,7 @@ import { useAuth } from '../auth/AuthContext'
 import { supabase } from '../lib/supabase'
 import type { Horaire } from '../lib/types'
 import { couleurDe } from '../lib/couleurs'
-import { debutSemaine, dureeHeures, formatHeures, formatJour, formatPause, heureLocale } from '../lib/dates'
+import { debutSemaine, dureeHeures, formatHeures, formatJour, heureLocale, textePause } from '../lib/dates'
 
 const COULEUR = couleurDe(0)
 
@@ -25,7 +25,7 @@ export default function MonPlanning() {
     async (info: EventSourceFuncArg): Promise<EventInput[]> => {
       const { data, error } = await supabase
         .from('shifts')
-        .select('id, employe_id, debut, fin, note, pause_minutes')
+        .select('id, employe_id, debut, fin, note, pause_minutes, pause_debut, pause_fin')
         .eq('employe_id', profil!.id)
         .lt('debut', info.endStr)
         .gt('fin', info.startStr)
@@ -37,7 +37,7 @@ export default function MonPlanning() {
       setErreur(null)
       return (data as Horaire[]).map((h) => ({
         id: h.id,
-        title: [h.note || 'Service', h.pause_minutes ? `pause ${formatPause(h.pause_minutes)}` : '']
+        title: [h.note || 'Service', textePause(h)]
           .filter(Boolean)
           .join(' · '),
         start: h.debut,
@@ -45,6 +45,7 @@ export default function MonPlanning() {
         backgroundColor: COULEUR.fond,
         borderColor: COULEUR.trait,
         textColor: COULEUR.texte,
+        extendedProps: { pause: h.pause_debut ? { debut: h.pause_debut, fin: h.pause_fin } : null },
       }))
     },
     [profil],
@@ -66,7 +67,7 @@ export default function MonPlanning() {
         .lt('debut', lundiSuivant.toISOString()),
       supabase
         .from('shifts')
-        .select('id, employe_id, debut, fin, note, pause_minutes')
+        .select('id, employe_id, debut, fin, note, pause_minutes, pause_debut, pause_fin')
         .eq('employe_id', profil.id)
         .gt('fin', maintenant)
         .order('debut')
@@ -115,8 +116,8 @@ export default function MonPlanning() {
                 <div className="text-sm">
                   {heureLocale(new Date(resume.prochain.debut))} – {heureLocale(new Date(resume.prochain.fin))}
                 </div>
-                {resume.prochain.pause_minutes > 0 && (
-                  <div className="text-[13px] text-gris">Pause : {formatPause(resume.prochain.pause_minutes)}</div>
+                {resume.prochain.pause_debut && (
+                  <div className="text-[13px] text-gris first-letter:uppercase">{textePause(resume.prochain)}</div>
                 )}
                 {resume.prochain.note && (
                   <div className="mt-2 rounded-lg bg-fond px-2.5 py-1.5 text-[13px] text-gris">

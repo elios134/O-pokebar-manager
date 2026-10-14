@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Profil } from '../lib/types'
-import { construirePlage, dureeHeures, formatHeures, formatPause } from '../lib/dates'
+import { construirePlage, dureeHeures, formatHeures, heureDansService, heureLocale } from '../lib/dates'
 import Fenetre, { boutonPrincipal, boutonSecondaire, champ, etiquette } from './Fenetre'
 
 export interface ValeursHoraire {
@@ -10,11 +10,11 @@ export interface ValeursHoraire {
   jour: string
   debut: string
   fin: string
-  pause: number
+  /** "" = pas de pause */
+  pauseDebut: string
+  pauseFin: string
   note: string
 }
-
-const PAUSES = [0, 15, 20, 30, 45, 60, 90, 120]
 
 export default function FenetreHoraire({
   valeurs,
@@ -34,27 +34,47 @@ export default function FenetreHoraire({
 
   const plage = v.jour && v.debut && v.fin ? construirePlage(v.jour, v.debut, v.fin) : null
   const lendemain = plage && plage.fin.getDate() !== plage.debut.getDate()
-  const amplitude = plage ? dureeHeures(plage.debut, plage.fin) : 0
-  const pauseTropLongue = plage !== null && v.pause / 60 >= amplitude
-  const choixPauses = PAUSES.includes(v.pause) ? PAUSES : [...PAUSES, v.pause].sort((a, b) => a - b)
+  const avecPause = v.pauseDebut !== ''
+
+  const pause =
+    plage && avecPause && v.pauseFin
+      ? (() => {
+          const debut = heureDansService(v.jour, v.pauseDebut, plage.debut)
+          const fin = heureDansService(v.jour, v.pauseFin, plage.debut)
+          return { debut, fin }
+        })()
+      : null
+  const pauseInvalide =
+    pause !== null && (pause.fin <= pause.debut || pause.debut < plage!.debut || pause.fin > plage!.fin)
+  const minutesPause = pause && !pauseInvalide ? (pause.fin.getTime() - pause.debut.getTime()) / 60_000 : 0
+
+  /** Propose une pause de 30 min au milieu du service. */
+  function ajouterPause() {
+    if (!plage) return setV({ ...v, pauseDebut: '12:00', pauseFin: '12:30' })
+    const milieu = new Date((plage.debut.getTime() + plage.fin.getTime()) / 2)
+    milieu.setMinutes(milieu.getMinutes() < 30 ? 0 : 30, 0, 0)
+    const fin = new Date(milieu.getTime() + 30 * 60_000)
+    setV({ ...v, pauseDebut: heureLocale(milieu), pauseFin: heureLocale(fin) })
+  }
 
   async function enregistrer(e: FormEvent) {
     e.preventDefault()
-    if (!plage || !v.employe_id || pauseTropLongue) return
+    if (!plage || !v.employe_id || pauseInvalide || (avecPause && !pause)) return
     setEnvoi(true)
     setErreur(null)
     const ligne = {
       employe_id: v.employe_id,
       debut: plage.debut.toISOString(),
       fin: plage.fin.toISOString(),
-      pause_minutes: v.pause,
+      pause_debut: pause ? pause.debut.toISOString() : null,
+      pause_fin: pause ? pause.fin.toISOString() : null,
       note: v.note.trim() || null,
     }
     const { error } = modification
       ? await supabase.from('shifts').update(ligne).eq('id', v.id!)
       : await supabase.from('shifts').insert(ligne)
     setEnvoi(false)
-    if (error) return setErreur("Enregistrement impossible. Vérifiez les heures et réessayez.")
+    if (error) return setErreur('Enregistrement impossible. Vérifiez les heures et réessayez.')
     onEnregistre()
   }
 
@@ -118,29 +138,62 @@ export default function FenetreHoraire({
             />
           </label>
         </div>
-        <label className={etiquette}>
-          Temps de pause
-          <select
-            value={v.pause}
-            onChange={(e) => setV({ ...v, pause: Number(e.target.value) })}
-            className={champ}
-          >
-            {choixPauses.map((m) => (
-              <option key={m} value={m}>
-                {m ? formatPause(m) : 'Aucune pause'}
-              </option>
-            ))}
-          </select>
-        </label>
+
+        <fieldset className="rounded-xl border border-ligne bg-fond/60 p-3">
+          <legend className="px-1 text-sm font-semibold">Pause</legend>
+          {avecPause ? (
+            <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-2 gap-3">
+                <label className={etiquette}>
+                  Début de pause
+                  <input
+                    type="time"
+                    required
+                    value={v.pauseDebut}
+                    onChange={(e) => setV({ ...v, pauseDebut: e.target.value })}
+                    className={champ}
+                  />
+                </label>
+                <label className={etiquette}>
+                  Fin de pause
+                  <input
+                    type="time"
+                    required
+                    value={v.pauseFin}
+                    onChange={(e) => setV({ ...v, pauseFin: e.target.value })}
+                    className={champ}
+                  />
+                </label>
+              </div>
+              <button
+                type="button"
+                onClick={() => setV({ ...v, pauseDebut: '', pauseFin: '' })}
+                className="self-start text-sm font-semibold text-[#9B1C1C] underline-offset-2 hover:underline"
+              >
+                Retirer la pause
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={ajouterPause}
+              className="h-11 w-full rounded-lg border border-dashed border-[#9AA0AC] bg-white text-sm font-semibold text-marque-fonce hover:bg-marque-doux"
+            >
+              + Ajouter une pause
+            </button>
+          )}
+        </fieldset>
+
         {plage && (
-          <p className={`-mt-2 text-[13px] ${pauseTropLongue ? 'font-semibold text-red-800' : 'text-gris'}`}>
-            {pauseTropLongue
-              ? 'La pause est plus longue que le service.'
-              : `Temps de travail : ${formatHeures(dureeHeures(plage.debut, plage.fin, v.pause))}` +
-                (v.pause ? ` (sur ${formatHeures(amplitude)})` : '') +
+          <p className={`-mt-2 text-[13px] ${pauseInvalide ? 'font-semibold text-red-800' : 'text-gris'}`}>
+            {pauseInvalide
+              ? "La pause doit être comprise dans l'horaire, et sa fin après son début."
+              : `Temps de travail : ${formatHeures(dureeHeures(plage.debut, plage.fin, minutesPause))}` +
+                (minutesPause ? ` (sur ${formatHeures(dureeHeures(plage.debut, plage.fin))})` : '') +
                 (lendemain ? ' · se termine le lendemain' : '')}
           </p>
         )}
+
         <label className={etiquette}>
           Note (facultatif)
           <input
@@ -173,7 +226,7 @@ export default function FenetreHoraire({
           <button type="button" onClick={onFermer} className={`${boutonSecondaire} sm:ml-auto`}>
             Annuler
           </button>
-          <button type="submit" disabled={envoi} className={boutonPrincipal}>
+          <button type="submit" disabled={envoi || pauseInvalide} className={boutonPrincipal}>
             {envoi ? 'Enregistrement…' : 'Enregistrer'}
           </button>
         </div>

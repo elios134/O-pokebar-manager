@@ -21,11 +21,18 @@ create table public.shifts (
   fin         timestamptz not null,
   note        text,
   cree_le     timestamptz not null default now(),
-  pause_minutes integer not null default 0,  -- temps de pause non travaillé
+  pause_minutes integer not null default 0,  -- durée de pause, calculée par le trigger calcul_pause
+  pause_debut timestamptz,                   -- pause placée dans le service (facultative)
+  pause_fin   timestamptz,
   constraint fin_apres_debut check (fin > debut),
   constraint pause_valide check (
     pause_minutes >= 0
     and pause_minutes * 60 < extract(epoch from (fin - debut))
+  ),
+  constraint pause_dans_le_service check (
+    (pause_debut is null) = (pause_fin is null)
+    and (pause_debut is null
+         or (pause_debut >= debut and pause_fin <= fin and pause_fin > pause_debut))
   )
 );
 
@@ -53,6 +60,28 @@ $$;
 
 revoke all on function prive.est_admin() from public, anon;
 grant execute on function prive.est_admin() to authenticated;
+
+-- ---------- La durée de pause est toujours calculée à partir des heures de pause ----------
+create or replace function prive.calculer_pause()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if new.pause_debut is not null and new.pause_fin is not null then
+    new.pause_minutes := round(extract(epoch from (new.pause_fin - new.pause_debut)) / 60);
+  else
+    new.pause_minutes := 0;
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function prive.calculer_pause() from public, anon, authenticated;
+
+create trigger calcul_pause
+  before insert or update on public.shifts
+  for each row execute function prive.calculer_pause();
 
 -- ---------- Création automatique du profil à l'inscription ----------
 -- Le rôle est TOUJOURS 'employe' au départ, quoi que le client envoie.

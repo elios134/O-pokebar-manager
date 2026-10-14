@@ -34,6 +34,34 @@ function titre(arg: VerboseFormattingArg) {
   return `${fmtJourMois.format(debut)} – ${fmtComplet.format(fin)}`
 }
 
+/** Vue semaine / jour : la pause est dessinée en hachuré à sa place dans l'horaire. */
+function contenuGrille(arg: EventContentArg) {
+  const { start, end } = arg.event
+  const pause = arg.event.extendedProps.pause as { debut: string; fin: string } | null
+  let bande = null
+  if (pause && start && end) {
+    const total = end.getTime() - start.getTime()
+    const haut = ((new Date(pause.debut).getTime() - start.getTime()) / total) * 100
+    const hauteur = ((new Date(pause.fin).getTime() - new Date(pause.debut).getTime()) / total) * 100
+    bande = (
+      <span
+        aria-hidden="true"
+        className="pause-bande absolute inset-x-0"
+        style={{ top: `${haut}%`, height: `${hauteur}%` }}
+      />
+    )
+  }
+  return (
+    <div className="relative h-full overflow-hidden">
+      {bande}
+      <div className="relative px-[5px] py-[3px]">
+        <div className="text-[11px] tabular-nums">{arg.timeText}</div>
+        <div className="font-semibold">{arg.event.title}</div>
+      </div>
+    </div>
+  )
+}
+
 /** Vue liste : un service de nuit y serait coupé à minuit, on affiche donc ses vraies heures. */
 function contenuListe(arg: EventContentArg) {
   const { start, end } = arg.event
@@ -74,7 +102,10 @@ const Calendrier = forwardRef<FullCalendar, CalendarOptions>(function Calendrier
         height={mobile ? 'auto' : 720}
         nextDayThreshold="06:00:00"
         titleFormat={titre}
-        views={{ list: { displayEventTime: false, eventContent: contenuListe } }}
+        views={{
+          list: { displayEventTime: false, eventContent: contenuListe },
+          timeGrid: { eventContent: contenuGrille },
+        }}
         eventTimeFormat={{ hour: '2-digit', minute: '2-digit', meridiem: false }}
         slotLabelFormat={{ hour: '2-digit', minute: '2-digit', meridiem: false }}
         noEventsText="Aucun horaire sur cette période"

@@ -45,9 +45,6 @@ body {
   border-top-width: 3px;
   cursor: pointer;
 }
-.fc .fc-timegrid-event .fc-event-main {
-  padding: 3px 5px;
-}
 .fc .fc-list-day-cushion {
   background: #f8f9fb;
 }
@@ -100,4 +97,18 @@ body {
 }
 .fc .fc-toolbar.fc-footer-toolbar {
   margin-top: 12px;
+}
+
+/* Pause dans un horaire (vue semaine / jour) */
+.pause-bande {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.85) 0 4px,
+    rgba(255, 255, 255, 0.35) 4px 8px
+  );
+  border-top: 1px dashed currentColor;
+  border-bottom: 1px dashed currentColor;
+}
+.fc .fc-timegrid-event .fc-event-main {
+  padding: 0;
 }
