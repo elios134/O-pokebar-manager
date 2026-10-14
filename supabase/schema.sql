@@ -25,9 +25,14 @@ create table public.shifts (
 
 create index shifts_employe_debut_idx on public.shifts (employe_id, debut);
 
+-- ---------- Schéma privé (non exposé par l'API) pour les fonctions internes ----------
+create schema if not exists prive;
+revoke all on schema prive from public, anon;
+grant usage on schema prive to authenticated;
+
 -- ---------- Fonction : l'utilisateur connecté est-il un admin actif ? ----------
 -- "security definer" : lit profiles sans passer par le RLS (évite une boucle).
-create or replace function public.est_admin()
+create or replace function prive.est_admin()
 returns boolean
 language sql
 stable
@@ -40,12 +45,12 @@ as $$
   );
 $$;
 
-revoke all on function public.est_admin() from public;
-grant execute on function public.est_admin() to authenticated;
+revoke all on function prive.est_admin() from public, anon;
+grant execute on function prive.est_admin() to authenticated;
 
 -- ---------- Création automatique du profil à l'inscription ----------
 -- Le rôle est TOUJOURS 'employe' au départ, quoi que le client envoie.
-create or replace function public.creer_profil()
+create or replace function prive.creer_profil()
 returns trigger
 language plpgsql
 security definer
@@ -62,9 +67,11 @@ begin
 end;
 $$;
 
+revoke all on function prive.creer_profil() from public, anon, authenticated;
+
 create trigger a_la_creation_utilisateur
   after insert on auth.users
-  for each row execute function public.creer_profil();
+  for each row execute function prive.creer_profil();
 
 -- ---------- RLS : profiles ----------
 alter table public.profiles enable row level security;
@@ -73,14 +80,14 @@ alter table public.profiles enable row level security;
 create policy "profiles_lecture"
   on public.profiles for select
   to authenticated
-  using (id = auth.uid() or public.est_admin());
+  using (id = auth.uid() or prive.est_admin());
 
 -- Modification : admin seulement (l'employé ne peut rien modifier, donc pas son rôle).
 create policy "profiles_modif_admin"
   on public.profiles for update
   to authenticated
-  using (public.est_admin())
-  with check (public.est_admin());
+  using (prive.est_admin())
+  with check (prive.est_admin());
 
 -- Pas de policy insert/delete : seuls le trigger et le serveur (clé service) peuvent.
 
@@ -90,23 +97,23 @@ alter table public.shifts enable row level security;
 create policy "shifts_lecture"
   on public.shifts for select
   to authenticated
-  using (employe_id = auth.uid() or public.est_admin());
+  using (employe_id = auth.uid() or prive.est_admin());
 
 create policy "shifts_ajout_admin"
   on public.shifts for insert
   to authenticated
-  with check (public.est_admin());
+  with check (prive.est_admin());
 
 create policy "shifts_modif_admin"
   on public.shifts for update
   to authenticated
-  using (public.est_admin())
-  with check (public.est_admin());
+  using (prive.est_admin())
+  with check (prive.est_admin());
 
 create policy "shifts_suppr_admin"
   on public.shifts for delete
   to authenticated
-  using (public.est_admin());
+  using (prive.est_admin());
 
 -- ---------- Premier admin ----------
 -- Après avoir créé votre propre compte (Authentication > Users > Add user),
