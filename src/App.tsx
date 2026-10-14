@@ -1,8 +1,24 @@
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { AuthProvider } from './auth/AuthContext'
+import { Protege, RedirectionAccueil } from './auth/Protection'
+import AdminEmployes from './pages/AdminEmployes'
+import AdminPlanning from './pages/AdminPlanning'
+import Connexion from './pages/Connexion'
+import MonPlanning from './pages/MonPlanning'
+
 function App() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-100">
-      <h1 className="text-2xl font-semibold text-slate-800">Planning employés</h1>
-    </main>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/connexion" element={<Connexion />} />
+          <Route path="/mon-planning" element={<Protege><MonPlanning /></Protege>} />
+          <Route path="/admin/planning" element={<Protege admin><AdminPlanning /></Protege>} />
+          <Route path="/admin/employes" element={<Protege admin><AdminEmployes /></Protege>} />
+          <Route path="*" element={<RedirectionAccueil />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   )
 }
 
