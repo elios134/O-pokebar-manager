@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Profil } from '../lib/types'
-import { construirePlage, dureeHeures, formatHeures } from '../lib/dates'
+import { construirePlage, dureeHeures, formatHeures, formatPause } from '../lib/dates'
 import Fenetre, { boutonPrincipal, boutonSecondaire, champ, etiquette } from './Fenetre'
 
 export interface ValeursHoraire {
@@ -10,8 +10,11 @@ export interface ValeursHoraire {
   jour: string
   debut: string
   fin: string
+  pause: number
   note: string
 }
+
+const PAUSES = [0, 15, 20, 30, 45, 60, 90, 120]
 
 export default function FenetreHoraire({
   valeurs,
@@ -31,16 +34,20 @@ export default function FenetreHoraire({
 
   const plage = v.jour && v.debut && v.fin ? construirePlage(v.jour, v.debut, v.fin) : null
   const lendemain = plage && plage.fin.getDate() !== plage.debut.getDate()
+  const amplitude = plage ? dureeHeures(plage.debut, plage.fin) : 0
+  const pauseTropLongue = plage !== null && v.pause / 60 >= amplitude
+  const choixPauses = PAUSES.includes(v.pause) ? PAUSES : [...PAUSES, v.pause].sort((a, b) => a - b)
 
   async function enregistrer(e: FormEvent) {
     e.preventDefault()
-    if (!plage || !v.employe_id) return
+    if (!plage || !v.employe_id || pauseTropLongue) return
     setEnvoi(true)
     setErreur(null)
     const ligne = {
       employe_id: v.employe_id,
       debut: plage.debut.toISOString(),
       fin: plage.fin.toISOString(),
+      pause_minutes: v.pause,
       note: v.note.trim() || null,
     }
     const { error } = modification
@@ -111,10 +118,27 @@ export default function FenetreHoraire({
             />
           </label>
         </div>
+        <label className={etiquette}>
+          Temps de pause
+          <select
+            value={v.pause}
+            onChange={(e) => setV({ ...v, pause: Number(e.target.value) })}
+            className={champ}
+          >
+            {choixPauses.map((m) => (
+              <option key={m} value={m}>
+                {m ? formatPause(m) : 'Aucune pause'}
+              </option>
+            ))}
+          </select>
+        </label>
         {plage && (
-          <p className="-mt-2 text-[13px] text-gris">
-            Durée : {formatHeures(dureeHeures(plage.debut, plage.fin))}
-            {lendemain && ' · se termine le lendemain'}
+          <p className={`-mt-2 text-[13px] ${pauseTropLongue ? 'font-semibold text-red-800' : 'text-gris'}`}>
+            {pauseTropLongue
+              ? 'La pause est plus longue que le service.'
+              : `Temps de travail : ${formatHeures(dureeHeures(plage.debut, plage.fin, v.pause))}` +
+                (v.pause ? ` (sur ${formatHeures(amplitude)})` : '') +
+                (lendemain ? ' · se termine le lendemain' : '')}
           </p>
         )}
         <label className={etiquette}>

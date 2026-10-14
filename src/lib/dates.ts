@@ -18,13 +18,22 @@ export function construirePlage(jour: string, debut: string, fin: string) {
   return { debut: d, fin: f }
 }
 
-export function dureeHeures(debut: Date, fin: Date) {
-  return (fin.getTime() - debut.getTime()) / 3_600_000
+/** Durée travaillée en heures (pause déduite) */
+export function dureeHeures(debut: Date, fin: Date, pauseMinutes = 0) {
+  return (fin.getTime() - debut.getTime()) / 3_600_000 - pauseMinutes / 60
+}
+
+export function formatPause(minutes: number) {
+  if (!minutes) return ''
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  return h ? (m ? `${h} h ${deux(m)}` : `${h} h`) : `${m} min`
 }
 
 export function formatHeures(h: number) {
   const entier = Math.floor(h)
   const minutes = Math.round((h - entier) * 60)
+  if (!entier) return `${minutes} min`
   return minutes ? `${entier} h ${deux(minutes)}` : `${entier} h`
 }
 

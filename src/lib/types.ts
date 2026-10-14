@@ -15,4 +15,5 @@ export interface Horaire {
   debut: string
   fin: string
   note: string | null
+  pause_minutes: number
 }

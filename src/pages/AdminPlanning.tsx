@@ -14,7 +14,7 @@ import { IconePlus } from '../components/Icones'
 import { supabase } from '../lib/supabase'
 import type { Horaire, Profil } from '../lib/types'
 import { couleurDe, type Couleur } from '../lib/couleurs'
-import { heureLocale, jourLocal } from '../lib/dates'
+import { formatPause, heureLocale, jourLocal } from '../lib/dates'
 
 export default function AdminPlanning() {
   const calendrier = useRef<FullCalendar>(null)
@@ -49,7 +49,7 @@ export default function AdminPlanning() {
   const chargerEvenements = useCallback(async (info: EventSourceFuncArg): Promise<EventInput[]> => {
     const { data, error } = await supabase
       .from('shifts')
-      .select('id, employe_id, debut, fin, note')
+      .select('id, employe_id, debut, fin, note, pause_minutes')
       .lt('debut', info.endStr)
       .gt('fin', info.startStr)
       .order('debut')
@@ -67,7 +67,9 @@ export default function AdminPlanning() {
         const nom = p ? `${p.prenom} ${p.nom.charAt(0)}.` : 'Employé'
         return {
           id: h.id,
-          title: h.note ? `${nom} · ${h.note}` : nom,
+          title: [nom, h.note, h.pause_minutes ? `pause ${formatPause(h.pause_minutes)}` : '']
+            .filter(Boolean)
+            .join(' · '),
           start: h.debut,
           end: h.fin,
           backgroundColor: c.fond,
@@ -101,6 +103,7 @@ export default function AdminPlanning() {
       jour: jourLocal(d),
       debut: debut ? heureLocale(debut) : '09:00',
       fin: fin ? heureLocale(fin) : '17:00',
+      pause: 0,
       note: '',
     })
   }
@@ -121,6 +124,7 @@ export default function AdminPlanning() {
       jour: jourLocal(d),
       debut: heureLocale(d),
       fin: heureLocale(new Date(h.fin)),
+      pause: h.pause_minutes,
       note: h.note ?? '',
     })
   }

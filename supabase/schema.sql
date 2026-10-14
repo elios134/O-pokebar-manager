@@ -21,7 +21,12 @@ create table public.shifts (
   fin         timestamptz not null,
   note        text,
   cree_le     timestamptz not null default now(),
-  constraint fin_apres_debut check (fin > debut)
+  pause_minutes integer not null default 0,  -- temps de pause non travaillé
+  constraint fin_apres_debut check (fin > debut),
+  constraint pause_valide check (
+    pause_minutes >= 0
+    and pause_minutes * 60 < extract(epoch from (fin - debut))
+  )
 );
 
 create index shifts_employe_debut_idx on public.shifts (employe_id, debut);

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { initiales } from '../lib/couleurs'
+import BoutonInstaller from './BoutonInstaller'
 import { IconeCalendrier, IconeEquipe, IconeSortie } from './Icones'
 
 const lienHaut = ({ isActive }: { isActive: boolean }) =>
@@ -54,6 +55,7 @@ export default function Gabarit({
           )}
 
           <div className="ml-auto flex items-center gap-2.5">
+            <BoutonInstaller />
             <div className="flex size-9 items-center justify-center rounded-full bg-nuit text-[13px] font-bold text-white">
               {initiales(profil?.prenom ?? '', profil?.nom ?? '')}
             </div>
