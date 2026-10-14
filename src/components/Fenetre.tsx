@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { IconeFermer } from './Icones'
 
 /** Fenêtre au centre sur grand écran, qui monte du bas sur téléphone. */
@@ -6,10 +7,12 @@ export default function Fenetre({
   titre,
   onFermer,
   children,
+  large = false,
 }: {
   titre: string
   onFermer: () => void
   children: ReactNode
+  large?: boolean
 }) {
   useEffect(() => {
     const echap = (e: KeyboardEvent) => e.key === 'Escape' && onFermer()
@@ -17,7 +20,8 @@ export default function Fenetre({
     return () => window.removeEventListener('keydown', echap)
   }, [onFermer])
 
-  return (
+  // Rendu directement dans <body> : la fenêtre passe toujours au-dessus de l'en-tête et du menu.
+  return createPortal(
     <div
       className="fixed inset-0 z-40 flex items-end justify-center bg-[rgba(22,24,29,0.45)] sm:items-center"
       onMouseDown={(e) => e.target === e.currentTarget && onFermer()}
@@ -26,7 +30,9 @@ export default function Fenetre({
         role="dialog"
         aria-modal="true"
         aria-label={titre}
-        className="max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-white px-5 pt-3 pb-7 shadow-2xl sm:max-w-md sm:rounded-2xl sm:p-7"
+        className={`max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-white px-5 pt-3 pb-7 shadow-2xl sm:rounded-2xl sm:p-7 ${
+          large ? 'sm:max-w-3xl' : 'sm:max-w-md'
+        }`}
       >
         <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-[#C9CCD4] sm:hidden" />
         <div className="mb-4 flex items-center">
@@ -42,7 +48,8 @@ export default function Fenetre({
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

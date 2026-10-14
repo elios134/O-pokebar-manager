@@ -56,3 +56,27 @@ export const formatJour = new Intl.DateTimeFormat('fr-FR', {
   day: 'numeric',
   month: 'long',
 })
+
+/** Date "2026-11-02" → Date locale à minuit */
+export const dateDuJour = (jour: string) => new Date(`${jour}T00:00`)
+
+/** Nombre de jours d'un congé, bornes comprises */
+export function nbJours(debut: string, fin: string) {
+  return Math.round((dateDuJour(fin).getTime() - dateDuJour(debut).getTime()) / 86_400_000) + 1
+}
+
+const fmtCourt = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
+const fmtCourtAnnee = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+
+/** "lun. 2 nov. → ven. 6 nov. 2026" */
+export function formatPeriode(debut: string, fin: string) {
+  if (debut === fin) return fmtCourtAnnee.format(dateDuJour(debut))
+  return `${fmtCourt.format(dateDuJour(debut))} → ${fmtCourtAnnee.format(dateDuJour(fin))}`
+}
+
+/** Jour suivant au format "2026-11-03" (utile pour les événements « journée entière ») */
+export function jourSuivant(jour: string) {
+  const d = dateDuJour(jour)
+  d.setDate(d.getDate() + 1)
+  return jourLocal(d)
+}

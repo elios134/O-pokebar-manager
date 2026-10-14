@@ -2,9 +2,12 @@
 
 Site de gestion des plannings des employés (React + TypeScript + Vite + Tailwind + Supabase + FullCalendar).
 
-- **Employé** : voit son planning (semaine, mois, liste), ses heures de la semaine et son prochain service.
-- **Admin** : planning de toute l'équipe (filtre par employé, ajout / modification / suppression d'un horaire,
-  glisser-déposer), gestion des comptes (créer, désactiver / réactiver, changer le rôle).
+- **Employé** : voit son planning (semaine, mois, liste), ses heures de la semaine et son prochain service ;
+  demande des congés et suit la réponse.
+- **Admin** : planning de toute l'équipe (filtre par équipe et par employé, ajout / modification / suppression
+  d'un horaire, glisser-déposer, planification de plusieurs jours d'un coup, pauses placées), réponse aux
+  demandes de congé, gestion des comptes et des équipes.
+- **PWA** : installable sur téléphone et ordinateur.
 
 ## Démarrer en local
 1. Copier `.env.example` en `.env` et remplir l'URL et la clé publique de Supabase.

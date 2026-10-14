@@ -68,7 +68,7 @@ function contenuListe(arg: EventContentArg) {
   return (
     <span className="flex flex-wrap gap-x-3">
       <span className="font-semibold tabular-nums">
-        {start && heureLocale(start)} – {end && heureLocale(end)}
+        {arg.event.allDay ? 'Toute la journée' : `${start ? heureLocale(start) : ''} – ${end ? heureLocale(end) : ''}`}
       </span>
       <span>{arg.event.title}</span>
     </span>
@@ -94,7 +94,7 @@ const Calendrier = forwardRef<FullCalendar, CalendarOptions>(function Calendrier
         }
         footerToolbar={mobile ? { center: 'listWeek,timeGridDay,dayGridMonth' } : undefined}
         buttonText={{ listWeek: 'Liste', timeGridDay: 'Jour', timeGridWeek: 'Semaine', dayGridMonth: 'Mois' }}
-        allDaySlot={false}
+        allDayText="Congés"
         slotMinTime="06:00:00"
         slotMaxTime="30:00:00"
         scrollTime="08:00:00"

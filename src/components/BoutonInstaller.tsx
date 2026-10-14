@@ -10,12 +10,40 @@ const dejaInstallee = () =>
   window.matchMedia('(display-mode: standalone)').matches ||
   (navigator as Navigator & { standalone?: boolean }).standalone === true
 
-const estIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent)
+type Appareil = 'ios' | 'android' | 'ordinateur'
+function appareil(): Appareil {
+  const ua = navigator.userAgent
+  if (/iphone|ipad|ipod/i.test(ua) || (/macintosh/i.test(ua) && navigator.maxTouchPoints > 1)) return 'ios'
+  if (/android/i.test(ua)) return 'android'
+  return 'ordinateur'
+}
 
-/** Bouton « Installer l'app » : installation directe (Android, ordinateur) ou explication (iPhone). */
+const ETAPES: Record<Appareil, string[]> = {
+  ios: [
+    'Touchez le bouton Partager (le carré avec une flèche vers le haut).',
+    "Choisissez « Sur l'écran d'accueil ».",
+    "Touchez « Ajouter » : l'icône Planning apparaît sur votre écran.",
+  ],
+  android: [
+    'Ouvrez le menu du navigateur (les 3 points ⋮, en haut ou en bas à droite).',
+    "Choisissez « Installer l'application » ou « Ajouter à l'écran d'accueil ».",
+    "Confirmez : l'icône Planning apparaît sur votre écran.",
+  ],
+  ordinateur: [
+    "Cliquez sur l'icône d'installation à droite de la barre d'adresse (un écran avec une flèche).",
+    "Ou ouvrez le menu du navigateur et choisissez « Installer O'pokebar · Planning ».",
+    "L'application s'ouvre dans sa propre fenêtre.",
+  ],
+}
+
+/**
+ * Bouton « Installer » toujours visible tant que l'app n'est pas installée.
+ * Si le navigateur propose l'installation directe, on l'utilise ; sinon on explique comment faire
+ * (iPhone, Brave, Firefox… n'ont pas toujours l'installation directe).
+ */
 export default function BoutonInstaller() {
   const [evenement, setEvenement] = useState<EvenementInstallation | null>(null)
-  const [aideIOS, setAideIOS] = useState(false)
+  const [aide, setAide] = useState(false)
   const [installee, setInstallee] = useState(dejaInstallee)
 
   useEffect(() => {
@@ -35,13 +63,14 @@ export default function BoutonInstaller() {
     }
   }, [])
 
-  if (installee || (!evenement && !estIOS())) return null
+  if (installee) return null
 
   async function installer() {
-    if (!evenement) return setAideIOS(true)
+    if (!evenement) return setAide(true)
     await evenement.prompt()
-    await evenement.userChoice
+    const { outcome } = await evenement.userChoice
     setEvenement(null)
+    if (outcome === 'accepted') setInstallee(true)
   }
 
   return (
@@ -56,20 +85,14 @@ export default function BoutonInstaller() {
         </svg>
         Installer
       </button>
-      {aideIOS && (
-        <Fenetre titre="Installer l'application" onFermer={() => setAideIOS(false)}>
+      {aide && (
+        <Fenetre titre="Installer l'application" onFermer={() => setAide(false)}>
           <ol className="flex list-decimal flex-col gap-3 pl-5 text-[15px]">
-            <li>
-              Dans Safari, touchez le bouton <strong>Partager</strong> (le carré avec une flèche vers le haut).
-            </li>
-            <li>
-              Choisissez <strong>Sur l'écran d'accueil</strong>.
-            </li>
-            <li>
-              Touchez <strong>Ajouter</strong>. L'icône Planning apparaît sur votre écran.
-            </li>
+            {ETAPES[appareil()].map((e) => (
+              <li key={e}>{e}</li>
+            ))}
           </ol>
-          <button type="button" onClick={() => setAideIOS(false)} className={`${boutonPrincipal} mt-6 w-full`}>
+          <button type="button" onClick={() => setAide(false)} className={`${boutonPrincipal} mt-6 w-full`}>
             J'ai compris
           </button>
         </Fenetre>

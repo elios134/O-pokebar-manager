@@ -7,6 +7,12 @@ export interface Profil {
   role: Role
   actif: boolean
   email: string
+  equipe_id: string | null
+}
+
+export interface Equipe {
+  id: string
+  nom: string
 }
 
 export interface Horaire {
@@ -19,3 +25,21 @@ export interface Horaire {
   pause_debut: string | null
   pause_fin: string | null
 }
+
+export type StatutConge = 'en_attente' | 'accepte' | 'refuse'
+
+export interface Conge {
+  id: string
+  employe_id: string
+  debut: string // "2026-11-02"
+  fin: string
+  motif: string | null
+  statut: StatutConge
+  reponse: string | null
+  cree_le: string
+  traite_le: string | null
+}
+
+export const CHAMPS_PROFIL = 'id, nom, prenom, role, actif, email, equipe_id'
+export const CHAMPS_HORAIRE = 'id, employe_id, debut, fin, note, pause_minutes, pause_debut, pause_fin'
+export const CHAMPS_CONGE = 'id, employe_id, debut, fin, motif, statut, reponse, cree_le, traite_le'

@@ -4,9 +4,9 @@ import Calendrier from '../components/Calendrier'
 import Gabarit from '../components/Gabarit'
 import { useAuth } from '../auth/AuthContext'
 import { supabase } from '../lib/supabase'
-import type { Horaire } from '../lib/types'
+import { CHAMPS_CONGE, CHAMPS_HORAIRE, type Conge, type Horaire } from '../lib/types'
 import { couleurDe } from '../lib/couleurs'
-import { debutSemaine, dureeHeures, formatHeures, formatJour, heureLocale, textePause } from '../lib/dates'
+import { debutSemaine, dureeHeures, formatHeures, formatJour, heureLocale, jourLocal, jourSuivant, textePause } from '../lib/dates'
 
 const COULEUR = couleurDe(0)
 
@@ -23,19 +23,39 @@ export default function MonPlanning() {
 
   const chargerEvenements = useCallback(
     async (info: EventSourceFuncArg): Promise<EventInput[]> => {
-      const { data, error } = await supabase
-        .from('shifts')
-        .select('id, employe_id, debut, fin, note, pause_minutes, pause_debut, pause_fin')
-        .eq('employe_id', profil!.id)
-        .lt('debut', info.endStr)
-        .gt('fin', info.startStr)
-        .order('debut')
-      if (error) {
+      const [horaires, conges] = await Promise.all([
+        supabase
+          .from('shifts')
+          .select(CHAMPS_HORAIRE)
+          .eq('employe_id', profil!.id)
+          .lt('debut', info.endStr)
+          .gt('fin', info.startStr)
+          .order('debut'),
+        supabase
+          .from('conges')
+          .select(CHAMPS_CONGE)
+          .eq('employe_id', profil!.id)
+          .neq('statut', 'refuse')
+          .lte('debut', jourLocal(info.end))
+          .gte('fin', jourLocal(info.start)),
+      ])
+      if (horaires.error) {
         setErreur('Impossible de charger le planning. Réessayez.')
         return []
       }
       setErreur(null)
-      return (data as Horaire[]).map((h) => ({
+      const evenementsConges: EventInput[] = ((conges.data ?? []) as Conge[]).map((c) => ({
+        id: `conge-${c.id}`,
+        title: c.statut === 'accepte' ? 'Congé' : 'Congé demandé (en attente)',
+        start: c.debut,
+        end: jourSuivant(c.fin),
+        allDay: true,
+        backgroundColor: c.statut === 'accepte' ? COULEUR.trait : '#FFFFFF',
+        borderColor: COULEUR.trait,
+        textColor: c.statut === 'accepte' ? '#FFFFFF' : COULEUR.texte,
+        classNames: c.statut === 'accepte' ? ['conge'] : ['conge', 'conge-attente'],
+      }))
+      return [...evenementsConges, ...(horaires.data as Horaire[]).map((h) => ({
         id: h.id,
         title: [h.note || 'Service', textePause(h)]
           .filter(Boolean)
@@ -46,7 +66,7 @@ export default function MonPlanning() {
         borderColor: COULEUR.trait,
         textColor: COULEUR.texte,
         extendedProps: { pause: h.pause_debut ? { debut: h.pause_debut, fin: h.pause_fin } : null },
-      }))
+      }))]
     },
     [profil],
   )
@@ -67,7 +87,7 @@ export default function MonPlanning() {
         .lt('debut', lundiSuivant.toISOString()),
       supabase
         .from('shifts')
-        .select('id, employe_id, debut, fin, note, pause_minutes, pause_debut, pause_fin')
+        .select(CHAMPS_HORAIRE)
         .eq('employe_id', profil.id)
         .gt('fin', maintenant)
         .order('debut')

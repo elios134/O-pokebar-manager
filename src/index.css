@@ -112,3 +112,17 @@ body {
 .fc .fc-timegrid-event .fc-event-main {
   padding: 0;
 }
+
+/* Congés (ligne « Congés » en haut du calendrier) */
+.fc .conge {
+  border-top-width: 0;
+  border-width: 1px;
+  font-weight: 600;
+}
+.fc .conge-attente {
+  border-style: dashed;
+}
+.fc .fc-timegrid-axis-cushion {
+  font-size: 11px;
+  color: var(--color-gris);
+}

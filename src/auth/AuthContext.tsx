@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
-import type { Profil } from '../lib/types'
+import { CHAMPS_PROFIL, type Profil } from '../lib/types'
 
 interface AuthValeur {
   chargement: boolean
@@ -16,7 +16,7 @@ const AuthContext = createContext<AuthValeur | null>(null)
 async function chargerProfil(id: string): Promise<Profil | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, nom, prenom, role, actif, email')
+    .select(CHAMPS_PROFIL)
     .eq('id', id)
     .maybeSingle()
   if (error) return null

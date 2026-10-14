@@ -6,9 +6,9 @@ import { IconePlus, IconeRecherche } from '../components/Icones'
 import { couleurDe, initiales } from '../lib/couleurs'
 import { gererEmploye } from '../lib/fonctions'
 import { supabase } from '../lib/supabase'
-import type { Profil, Role } from '../lib/types'
+import { CHAMPS_PROFIL, type Equipe, type Profil, type Role } from '../lib/types'
 
-const VIDE = { prenom: '', nom: '', email: '', motDePasse: '', role: 'employe' as Role }
+const VIDE = { prenom: '', nom: '', email: '', motDePasse: '', role: 'employe' as Role, equipe: '' }
 
 export default function AdminEmployes() {
   const { profil: moi } = useAuth()
@@ -17,19 +17,34 @@ export default function AdminEmployes() {
   const [message, setMessage] = useState<{ type: 'ok' | 'erreur'; texte: string } | null>(null)
   const [enCours, setEnCours] = useState<string | null>(null)
   const [creation, setCreation] = useState(false)
+  const [equipes, setEquipes] = useState<Equipe[]>([])
+  const [filtreEquipe, setFiltreEquipe] = useState('')
 
   const charger = useCallback(
     () =>
-      supabase
-        .from('profiles')
-        .select('id, nom, prenom, role, actif, email')
-        .order('prenom')
-        .then(({ data, error }) => {
-          if (error) setMessage({ type: 'erreur', texte: 'Impossible de charger les employés.' })
-          else setProfils(data as Profil[])
-        }),
+      Promise.all([
+        supabase.from('profiles').select(CHAMPS_PROFIL).order('prenom'),
+        supabase.from('equipes').select('id, nom').order('nom'),
+      ]).then(([p, e]) => {
+        if (p.error) setMessage({ type: 'erreur', texte: 'Impossible de charger les employés.' })
+        else setProfils(p.data as Profil[])
+        setEquipes((e.data ?? []) as Equipe[])
+      }),
     [],
   )
+
+  async function changerEquipe(p: Profil, equipeId: string) {
+    setEnCours(p.id)
+    const { error } = await supabase
+      .from('profiles')
+      .update({ equipe_id: equipeId || null })
+      .eq('id', p.id)
+    setEnCours(null)
+    const nomEquipe = equipes.find((e) => e.id === equipeId)?.nom
+    if (error) setMessage({ type: 'erreur', texte: "Changement d'équipe impossible." })
+    else setMessage({ type: 'ok', texte: nomEquipe ? `${p.prenom} est dans l'équipe ${nomEquipe}.` : `${p.prenom} n'a plus d'équipe.` })
+    void charger()
+  }
 
   useEffect(() => {
     void charger()
@@ -59,8 +74,10 @@ export default function AdminEmployes() {
   }
 
   const filtre = recherche.trim().toLowerCase()
-  const visibles = (profils ?? []).filter((p) =>
-    `${p.prenom} ${p.nom} ${p.email}`.toLowerCase().includes(filtre),
+  const visibles = (profils ?? []).filter(
+    (p) =>
+      `${p.prenom} ${p.nom} ${p.email}`.toLowerCase().includes(filtre) &&
+      (!filtreEquipe || (filtreEquipe === 'aucune' ? !p.equipe_id : p.equipe_id === filtreEquipe)),
   )
 
   return (
@@ -77,17 +94,42 @@ export default function AdminEmployes() {
         </button>
       }
     >
-      <label className="relative mb-4 flex items-center sm:w-80">
-        <span className="sr-only">Rechercher</span>
-        <IconeRecherche className="absolute left-3.5 text-gris" />
-        <input
-          type="search"
-          placeholder="Rechercher un nom…"
-          value={recherche}
-          onChange={(e) => setRecherche(e.target.value)}
-          className={`${champ} pl-10`}
-        />
-      </label>
+      <GestionEquipes
+        equipes={equipes}
+        profils={profils ?? []}
+        onChange={(m) => {
+          setMessage(m)
+          void charger()
+        }}
+      />
+
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row">
+        <label className="relative flex items-center sm:w-80">
+          <span className="sr-only">Rechercher</span>
+          <IconeRecherche className="absolute left-3.5 text-gris" />
+          <input
+            type="search"
+            placeholder="Rechercher un nom…"
+            value={recherche}
+            onChange={(e) => setRecherche(e.target.value)}
+            className={`${champ} pl-10`}
+          />
+        </label>
+        <select
+          aria-label="Filtrer par équipe"
+          value={filtreEquipe}
+          onChange={(e) => setFiltreEquipe(e.target.value)}
+          className={`${champ} sm:w-56`}
+        >
+          <option value="">Toutes les équipes</option>
+          {equipes.map((e) => (
+            <option key={e.id} value={e.id}>
+              Équipe {e.nom}
+            </option>
+          ))}
+          <option value="aucune">Sans équipe</option>
+        </select>
+      </div>
 
       {message && (
         <p
@@ -135,7 +177,21 @@ export default function AdminEmployes() {
                   {p.actif ? 'Actif' : 'Désactivé'}
                 </span>
 
-                <div className="flex w-full gap-2 sm:w-auto">
+                <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:flex-nowrap">
+                  <select
+                    aria-label={`Équipe de ${p.prenom} ${p.nom}`}
+                    value={p.equipe_id ?? ''}
+                    disabled={enCours === p.id}
+                    onChange={(e) => void changerEquipe(p, e.target.value)}
+                    className="h-11 w-full rounded-lg border border-[#C9CCD4] bg-white px-2 text-sm disabled:opacity-60 sm:h-10 sm:w-40"
+                  >
+                    <option value="">Sans équipe</option>
+                    {equipes.map((e) => (
+                      <option key={e.id} value={e.id}>
+                        {e.nom}
+                      </option>
+                    ))}
+                  </select>
                   <select
                     aria-label={`Rôle de ${p.prenom} ${p.nom}`}
                     value={p.role}
@@ -166,6 +222,7 @@ export default function AdminEmployes() {
 
       {creation && (
         <FenetreCreation
+          equipes={equipes}
           onFermer={() => setCreation(false)}
           onCree={(nom) => {
             setCreation(false)
@@ -178,7 +235,15 @@ export default function AdminEmployes() {
   )
 }
 
-function FenetreCreation({ onFermer, onCree }: { onFermer: () => void; onCree: (nom: string) => void }) {
+function FenetreCreation({
+  equipes,
+  onFermer,
+  onCree,
+}: {
+  equipes: Equipe[]
+  onFermer: () => void
+  onCree: (nom: string) => void
+}) {
   const [v, setV] = useState(VIDE)
   const [erreur, setErreur] = useState<string | null>(null)
   const [envoi, setEnvoi] = useState(false)
@@ -187,7 +252,15 @@ function FenetreCreation({ onFermer, onCree }: { onFermer: () => void; onCree: (
     e.preventDefault()
     setEnvoi(true)
     setErreur(null)
-    const err = await gererEmploye({ action: 'creer', ...v })
+    const { equipe, ...compte } = v
+    const err = await gererEmploye({ action: 'creer', ...compte })
+    if (!err && equipe) {
+      // Le profil vient d'être créé : on le range dans l'équipe choisie.
+      await supabase
+        .from('profiles')
+        .update({ equipe_id: equipe })
+        .eq('email', compte.email.trim().toLowerCase())
+    }
     setEnvoi(false)
     if (err) setErreur(err)
     else onCree(`${v.prenom} ${v.nom}`)
@@ -230,13 +303,26 @@ function FenetreCreation({ onFermer, onCree }: { onFermer: () => void; onCree: (
           />
           <span className="text-xs font-medium text-gris">8 caractères minimum.</span>
         </label>
-        <label className={etiquette}>
-          Rôle
-          <select value={v.role} onChange={(e) => setV({ ...v, role: e.target.value as Role })} className={champ}>
-            <option value="employe">Employé</option>
-            <option value="admin">Admin</option>
-          </select>
-        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <label className={etiquette}>
+            Rôle
+            <select value={v.role} onChange={(e) => setV({ ...v, role: e.target.value as Role })} className={champ}>
+              <option value="employe">Employé</option>
+              <option value="admin">Admin</option>
+            </select>
+          </label>
+          <label className={etiquette}>
+            Équipe
+            <select value={v.equipe} onChange={(e) => setV({ ...v, equipe: e.target.value })} className={champ}>
+              <option value="">Sans équipe</option>
+              {equipes.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.nom}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
 
         {erreur && (
           <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
@@ -254,5 +340,105 @@ function FenetreCreation({ onFermer, onCree }: { onFermer: () => void; onCree: (
         </div>
       </form>
     </Fenetre>
+  )
+}
+
+/** Bloc « Équipes » : liste, création et suppression. */
+function GestionEquipes({
+  equipes,
+  profils,
+  onChange,
+}: {
+  equipes: Equipe[]
+  profils: Profil[]
+  onChange: (m: { type: 'ok' | 'erreur'; texte: string }) => void
+}) {
+  const [ouvert, setOuvert] = useState(false)
+  const [nom, setNom] = useState('')
+  const [envoi, setEnvoi] = useState(false)
+
+  async function creer(e: FormEvent) {
+    e.preventDefault()
+    const propre = nom.trim()
+    if (!propre) return
+    setEnvoi(true)
+    const { error } = await supabase.from('equipes').insert({ nom: propre })
+    setEnvoi(false)
+    if (error) {
+      onChange({
+        type: 'erreur',
+        texte: error.code === '23505' ? 'Une équipe porte déjà ce nom.' : "Création de l'équipe impossible.",
+      })
+    } else {
+      setNom('')
+      onChange({ type: 'ok', texte: `Équipe ${propre} créée.` })
+    }
+  }
+
+  async function supprimer(eq: Equipe) {
+    const n = profils.filter((p) => p.equipe_id === eq.id).length
+    const texte = n
+      ? `Supprimer l'équipe ${eq.nom} ? Ses ${n} membre${n > 1 ? 's' : ''} n'auront plus d'équipe.`
+      : `Supprimer l'équipe ${eq.nom} ?`
+    if (!window.confirm(texte)) return
+    const { error } = await supabase.from('equipes').delete().eq('id', eq.id)
+    onChange(error ? { type: 'erreur', texte: 'Suppression impossible.' } : { type: 'ok', texte: `Équipe ${eq.nom} supprimée.` })
+  }
+
+  return (
+    <section className="mb-4 rounded-2xl border border-ligne bg-white">
+      <button
+        type="button"
+        onClick={() => setOuvert((o) => !o)}
+        aria-expanded={ouvert}
+        className="flex min-h-12 w-full items-center gap-2 px-4 text-left font-bold"
+      >
+        Équipes
+        <span className="text-sm font-semibold text-gris">({equipes.length})</span>
+        <span className="ml-auto text-sm font-semibold text-marque-fonce">{ouvert ? 'Fermer' : 'Gérer'}</span>
+      </button>
+      {ouvert && (
+        <div className="flex flex-col gap-3 border-t border-ligne p-4">
+          {equipes.length === 0 && <p className="text-sm text-gris">Aucune équipe pour l'instant.</p>}
+          <ul className="flex flex-wrap gap-2">
+            {equipes.map((eq) => {
+              const n = profils.filter((p) => p.equipe_id === eq.id).length
+              return (
+                <li key={eq.id} className="flex items-center gap-1 rounded-full border border-[#C9CCD4] py-1 pr-1 pl-3.5 text-sm font-semibold">
+                  {eq.nom}
+                  <span className="font-medium text-gris">· {n}</span>
+                  <button
+                    type="button"
+                    onClick={() => void supprimer(eq)}
+                    aria-label={`Supprimer l'équipe ${eq.nom}`}
+                    className="ml-1 flex size-8 items-center justify-center rounded-full text-gris hover:bg-red-50 hover:text-[#9B1C1C]"
+                  >
+                    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+                      <path d="M18 6 6 18M6 6l12 12" />
+                    </svg>
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+          <form onSubmit={creer} className="flex gap-2">
+            <label className="sr-only" htmlFor="nouvelle-equipe">
+              Nom de la nouvelle équipe
+            </label>
+            <input
+              id="nouvelle-equipe"
+              value={nom}
+              maxLength={60}
+              placeholder="Nouvelle équipe (ex. : Cuisine, Salle…)"
+              onChange={(e) => setNom(e.target.value)}
+              className={`${champ} flex-1`}
+            />
+            <button type="submit" disabled={envoi || !nom.trim()} className={`${boutonPrincipal} shrink-0`}>
+              Créer
+            </button>
+          </form>
+        </div>
+      )}
+    </section>
   )
 }
