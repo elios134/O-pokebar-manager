@@ -15,13 +15,60 @@ interface Ligne {
 const fmtJour = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
 const petit = 'h-11 w-full min-w-0 rounded-lg border border-[#C9CCD4] bg-white px-2 text-[15px] outline-none focus:border-marque'
 
+/** Pause facultative : un bouton pour l'ajouter, deux heures et un bouton pour la retirer. */
+function BlocPause({ ligne, onChange }: { ligne: Ligne; onChange: (champs: Partial<Ligne>) => void }) {
+  if (!ligne.pauseDebut && !ligne.pauseFin) {
+    return (
+      <button
+        type="button"
+        onClick={() => onChange(pauseParDefaut(ligne))}
+        className="col-span-2 h-11 rounded-lg border border-dashed border-[#9AA0AC] bg-white text-sm font-semibold text-marque-fonce hover:bg-marque-doux"
+      >
+        + Ajouter une pause
+      </button>
+    )
+  }
+  return (
+    <>
+      <label className="flex flex-col gap-1 text-xs font-semibold">
+        Début de pause
+        <input type="time" required value={ligne.pauseDebut} onChange={(e) => onChange({ pauseDebut: e.target.value })} className={petit} />
+      </label>
+      <label className="flex flex-col gap-1 text-xs font-semibold">
+        Fin de pause
+        <input type="time" required value={ligne.pauseFin} onChange={(e) => onChange({ pauseFin: e.target.value })} className={petit} />
+      </label>
+      <button
+        type="button"
+        onClick={() => onChange({ pauseDebut: '', pauseFin: '' })}
+        className="col-span-2 justify-self-start text-sm font-semibold text-[#9B1C1C] hover:underline"
+      >
+        Retirer la pause
+      </button>
+    </>
+  )
+}
+
+/** Pause de 30 min proposée au milieu de l'horaire. */
+function pauseParDefaut(l: Ligne): Partial<Ligne> {
+  const [hd, md] = l.debut.split(':').map(Number)
+  const [hf, mf] = l.fin.split(':').map(Number)
+  let debut = hd * 60 + md
+  let fin = hf * 60 + mf
+  if (fin <= debut) fin += 24 * 60
+  const milieu = Math.floor((debut + fin) / 2 / 30) * 30
+  debut = milieu % (24 * 60)
+  const h = (m: number) => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+  return { pauseDebut: h(debut), pauseFin: h(debut + 30) }
+}
+
 /** Calcule un horaire ; renvoie une erreur lisible si les heures ne vont pas. */
 function calculer(jour: string, l: Ligne) {
   if (!l.debut || !l.fin) return { erreur: 'Heures manquantes.' }
   const plage = construirePlage(jour, l.debut, l.fin)
   let pause: { debut: Date; fin: Date } | null = null
-  if (l.pauseDebut) {
-    if (!l.pauseFin) return { erreur: 'Fin de pause manquante.' }
+  if (l.pauseDebut || l.pauseFin) {
+    if (!l.pauseDebut || !l.pauseFin) return { erreur: 'Indiquez le début et la fin de la pause, ou retirez-la.' }
     pause = {
       debut: heureDansService(jour, l.pauseDebut, plage.debut),
       fin: heureDansService(jour, l.pauseFin, plage.debut),
@@ -149,16 +196,9 @@ export default function FenetrePlanification({
                   Fin
                   <input type="time" value={modele.fin} onChange={(e) => setModele({ ...modele, fin: e.target.value })} className={petit} />
                 </label>
-                <label className="flex flex-col gap-1 text-xs font-semibold">
-                  Début de pause
-                  <input type="time" value={modele.pauseDebut} onChange={(e) => setModele({ ...modele, pauseDebut: e.target.value })} className={petit} />
-                </label>
-                <label className="flex flex-col gap-1 text-xs font-semibold">
-                  Fin de pause
-                  <input type="time" value={modele.pauseFin} onChange={(e) => setModele({ ...modele, pauseFin: e.target.value })} className={petit} />
-                </label>
+                <BlocPause ligne={modele} onChange={(c) => setModele({ ...modele, ...c })} />
               </div>
-              <p className="text-xs text-gris">Laissez la pause vide s'il n'y en a pas.</p>
+              <p className="text-xs text-gris">La pause est facultative.</p>
               <button
                 type="button"
                 onClick={appliquerATous}
@@ -209,14 +249,9 @@ export default function FenetrePlanification({
                         Fin
                         <input type="time" required value={l.fin} onChange={(e) => modifier(j, { fin: e.target.value })} className={petit} />
                       </label>
-                      <label className="flex flex-col gap-1 text-xs font-semibold">
-                        Début de pause
-                        <input type="time" value={l.pauseDebut} onChange={(e) => modifier(j, { pauseDebut: e.target.value })} className={petit} />
-                      </label>
-                      <label className="flex flex-col gap-1 text-xs font-semibold">
-                        Fin de pause
-                        <input type="time" value={l.pauseFin} onChange={(e) => modifier(j, { pauseFin: e.target.value })} className={petit} />
-                      </label>
+                      <div className="col-span-2 grid grid-cols-2 gap-2">
+                        <BlocPause ligne={l} onChange={(c) => modifier(j, c)} />
+                      </div>
                     </div>
                     <p className={`mt-1.5 text-xs ${c.erreur ? 'font-semibold text-red-800' : 'text-gris'}`}>
                       {c.erreur ?? `Temps de travail : ${formatHeures(c.travail!)}`}
