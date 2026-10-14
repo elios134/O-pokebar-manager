@@ -9,7 +9,8 @@ create table public.profiles (
   nom     text not null default '',
   prenom  text not null default '',
   role    text not null default 'employe' check (role in ('employe', 'admin')),
-  actif   boolean not null default true
+  actif   boolean not null default true,
+  email   text not null default ''  -- copie de auth.users.email, pour l'affichage
 );
 
 -- ---------- Table shifts (horaires) ----------
@@ -57,11 +58,12 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, nom, prenom)
+  insert into public.profiles (id, nom, prenom, email)
   values (
     new.id,
     coalesce(new.raw_user_meta_data ->> 'nom', ''),
-    coalesce(new.raw_user_meta_data ->> 'prenom', '')
+    coalesce(new.raw_user_meta_data ->> 'prenom', ''),
+    coalesce(new.email, '')
   );
   return new;
 end;
@@ -72,6 +74,33 @@ revoke all on function prive.creer_profil() from public, anon, authenticated;
 create trigger a_la_creation_utilisateur
   after insert on auth.users
   for each row execute function prive.creer_profil();
+
+-- ---------- Garde-fous sur les modifications faites depuis le site ----------
+create or replace function prive.controle_modif_profil()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is not null then
+    -- L'email suit le compte de connexion : on ne le change pas ici.
+    new.email := old.email;
+    new.id := old.id;
+    -- Un admin ne peut pas se retirer ses propres droits ni se désactiver.
+    if new.id = auth.uid() and (new.role <> old.role or new.actif <> old.actif) then
+      raise exception 'Vous ne pouvez pas modifier votre propre rôle ou statut.';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function prive.controle_modif_profil() from public, anon, authenticated;
+
+create trigger avant_modif_profil
+  before update on public.profiles
+  for each row execute function prive.controle_modif_profil();
 
 -- ---------- RLS : profiles ----------
 alter table public.profiles enable row level security;
@@ -94,10 +123,15 @@ create policy "profiles_modif_admin"
 -- ---------- RLS : shifts ----------
 alter table public.shifts enable row level security;
 
+-- Un compte désactivé ne voit plus ses horaires, même avec une session encore ouverte.
 create policy "shifts_lecture"
   on public.shifts for select
   to authenticated
-  using (employe_id = auth.uid() or prive.est_admin());
+  using (
+    prive.est_admin()
+    or (employe_id = auth.uid()
+        and exists (select 1 from public.profiles where id = auth.uid() and actif))
+  );
 
 create policy "shifts_ajout_admin"
   on public.shifts for insert

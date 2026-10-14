@@ -6,4 +6,13 @@ export interface Profil {
   prenom: string
   role: Role
   actif: boolean
+  email: string
+}
+
+export interface Horaire {
+  id: string
+  employe_id: string
+  debut: string
+  fin: string
+  note: string | null
 }

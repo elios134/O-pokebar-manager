@@ -1,1 +1,103 @@
 @import "tailwindcss";
+
+@theme {
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --color-encre: #16181d;
+  --color-gris: #5b6170;
+  --color-ligne: #e3e5ea;
+  --color-fond: #f4f5f7;
+  --color-marque: #4338ca;
+  --color-marque-fonce: #312e81;
+  --color-nuit: #1e1b4b;
+  --color-marque-doux: #eef0ff;
+}
+
+body {
+  @apply bg-fond text-encre antialiased;
+}
+
+/* ---------- Calendrier (FullCalendar) aux couleurs de l'app ---------- */
+.fc {
+  --fc-border-color: #eef0f3;
+  --fc-today-bg-color: #f5f6ff;
+  --fc-now-indicator-color: #d6457e;
+  --fc-page-bg-color: #ffffff;
+  --fc-neutral-bg-color: #f8f9fb;
+  --fc-list-event-hover-bg-color: #f4f5f7;
+  font-size: 13px;
+}
+.fc .fc-col-header-cell-cushion,
+.fc .fc-daygrid-day-number {
+  color: var(--color-encre);
+  font-weight: 700;
+  text-decoration: none;
+}
+.fc .fc-timegrid-slot-label-cushion,
+.fc .fc-list-day-side-text {
+  color: var(--color-gris);
+}
+.fc .fc-timegrid-slot {
+  height: 2.2em;
+}
+.fc .fc-event {
+  border-radius: 8px;
+  border-width: 0;
+  border-top-width: 3px;
+  cursor: pointer;
+}
+.fc .fc-timegrid-event .fc-event-main {
+  padding: 3px 5px;
+}
+.fc .fc-list-day-cushion {
+  background: #f8f9fb;
+}
+.fc-theme-standard .fc-scrollgrid,
+.fc-theme-standard .fc-list {
+  border: 0;
+}
+
+/* Barre d'outils du calendrier */
+.fc .fc-toolbar-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+.fc .fc-toolbar-title::first-letter {
+  text-transform: uppercase;
+}
+.fc .fc-button {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  min-height: 40px;
+  border-radius: 9px;
+  background: #ffffff;
+  border-color: #c9ccd4;
+  color: var(--color-encre);
+  text-transform: capitalize;
+}
+.fc .fc-button:hover {
+  background: var(--color-fond);
+  color: var(--color-encre);
+  border-color: #c9ccd4;
+}
+.fc .fc-button-primary:not(:disabled).fc-button-active,
+.fc .fc-button-primary:not(:disabled):active {
+  background: var(--color-marque);
+  border-color: var(--color-marque);
+  color: #ffffff;
+}
+.fc .fc-button-primary:disabled {
+  background: #ffffff;
+  border-color: #e3e5ea;
+  color: #9aa0ac;
+}
+.fc .fc-button:focus {
+  box-shadow: 0 0 0 3px #c7c9f0 !important;
+}
+.fc .fc-toolbar.fc-header-toolbar {
+  margin-bottom: 12px;
+  gap: 8px;
+}
+.fc .fc-toolbar.fc-footer-toolbar {
+  margin-top: 12px;
+}

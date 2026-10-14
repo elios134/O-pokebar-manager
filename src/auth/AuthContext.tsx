@@ -16,7 +16,7 @@ const AuthContext = createContext<AuthValeur | null>(null)
 async function chargerProfil(id: string): Promise<Profil | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, nom, prenom, role, actif')
+    .select('id, nom, prenom, role, actif, email')
     .eq('id', id)
     .maybeSingle()
   if (error) return null
