@@ -16,7 +16,7 @@ import { IconePlus } from '../components/Icones'
 import { supabase } from '../lib/supabase'
 import { CHAMPS_CONGE, CHAMPS_PROFIL, CHAMPS_HORAIRE, type Conge, type Equipe, type Horaire, type Profil } from '../lib/types'
 import { couleurDe, type Couleur } from '../lib/couleurs'
-import { heureLocale, jourLocal, jourSuivant, textePause } from '../lib/dates'
+import { heureLocale, jourLocal, jourSuivant, lienImpression, textePause } from '../lib/dates'
 
 export default function AdminPlanning() {
   const calendrier = useRef<FullCalendar>(null)
@@ -205,7 +205,16 @@ export default function AdminPlanning() {
     <Gabarit
       titre="Planning de l'équipe"
       actions={
-        <div className="flex w-full gap-2 sm:w-auto">
+        <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+          <button
+            type="button"
+            onClick={() =>
+              naviguer(lienImpression(calendrier.current?.getApi().view.currentStart ?? new Date(), equipe || undefined))
+            }
+            className="flex h-11 items-center justify-center rounded-xl border border-[#C9CCD4] bg-white px-4 font-semibold hover:bg-fond"
+          >
+            Exporter en PDF
+          </button>
           <button
             type="button"
             onClick={() => setPlanification(true)}

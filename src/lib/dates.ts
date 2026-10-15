@@ -80,3 +80,10 @@ export function jourSuivant(jour: string) {
   d.setDate(d.getDate() + 1)
   return jourLocal(d)
 }
+
+/** Lien vers la page « planning de la semaine » à imprimer / enregistrer en PDF */
+export function lienImpression(jourDeLaSemaine: Date, equipe?: string) {
+  const p = new URLSearchParams({ semaine: jourLocal(debutSemaine(jourDeLaSemaine)) })
+  if (equipe) p.set('equipe', equipe)
+  return `/impression?${p.toString()}`
+}

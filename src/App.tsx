@@ -7,6 +7,7 @@ import AdminEmployes from './pages/AdminEmployes'
 import AdminPlanning from './pages/AdminPlanning'
 import Connexion from './pages/Connexion'
 import Echanges from './pages/Echanges'
+import Impression from './pages/Impression'
 import MesConges from './pages/MesConges'
 import MonCompte from './pages/MonCompte'
 import MotDePasseOublie from './pages/MotDePasseOublie'
@@ -24,6 +25,7 @@ function App() {
           <Route path="/mon-planning" element={<Protege><MonPlanning /></Protege>} />
           <Route path="/mon-compte" element={<Protege><MonCompte /></Protege>} />
           <Route path="/mes-conges" element={<Protege><MesConges /></Protege>} />
+          <Route path="/impression" element={<Protege><Impression /></Protege>} />
           <Route path="/echanges" element={<Protege><Echanges /></Protege>} />
           <Route path="/admin/echanges" element={<Protege admin><AdminEchanges /></Protege>} />
           <Route path="/admin/conges" element={<Protege admin><AdminConges /></Protege>} />

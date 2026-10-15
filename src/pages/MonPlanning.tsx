@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type FullCalendar from '@fullcalendar/react'
+import { useNavigate } from 'react-router-dom'
 import type { EventSourceFuncArg, EventInput } from '@fullcalendar/core'
 import Calendrier from '../components/Calendrier'
 import Gabarit from '../components/Gabarit'
@@ -6,7 +8,7 @@ import { useAuth } from '../auth/AuthContext'
 import { supabase } from '../lib/supabase'
 import { CHAMPS_CONGE, CHAMPS_HORAIRE, type Conge, type Horaire } from '../lib/types'
 import { couleurDe } from '../lib/couleurs'
-import { debutSemaine, dureeHeures, formatHeures, formatJour, heureLocale, jourLocal, jourSuivant, textePause } from '../lib/dates'
+import { debutSemaine, dureeHeures, formatHeures, formatJour, heureLocale, jourLocal, jourSuivant, textePause, lienImpression } from '../lib/dates'
 
 const COULEUR = couleurDe(0)
 
@@ -20,6 +22,8 @@ export default function MonPlanning() {
   const { profil } = useAuth()
   const [resume, setResume] = useState<Resume | null>(null)
   const [erreur, setErreur] = useState<string | null>(null)
+  const calendrier = useRef<FullCalendar>(null)
+  const naviguer = useNavigate()
 
   const chargerEvenements = useCallback(
     async (info: EventSourceFuncArg): Promise<EventInput[]> => {
@@ -107,7 +111,18 @@ export default function MonPlanning() {
   }, [profil])
 
   return (
-    <Gabarit titre="Mon planning">
+    <Gabarit
+      titre="Mon planning"
+      actions={
+        <button
+          type="button"
+          onClick={() => naviguer(lienImpression(calendrier.current?.getApi().view.currentStart ?? new Date()))}
+          className="flex h-11 items-center rounded-xl border border-[#C9CCD4] bg-white px-4 font-semibold hover:bg-fond"
+        >
+          Exporter en PDF
+        </button>
+      }
+    >
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
         <div className="order-2 min-w-0 flex-1 lg:order-1">
           {erreur && (
@@ -115,7 +130,7 @@ export default function MonPlanning() {
               {erreur}
             </p>
           )}
-          <Calendrier events={chargerEvenements} />
+          <Calendrier ref={calendrier} events={chargerEvenements} />
         </div>
 
         <aside className="order-1 grid grid-cols-2 gap-3 lg:order-2 lg:w-64 lg:grid-cols-1">
