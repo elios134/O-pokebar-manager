@@ -1,4 +1,5 @@
-// Fonction serveur réservée aux admins : créer un compte, activer / désactiver un compte.
+// Fonction serveur réservée aux admins : créer un compte, activer / désactiver un compte,
+// donner un nouveau mot de passe.
 // Elle utilise la clé secrète du projet, qui ne doit jamais aller dans le navigateur.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
@@ -71,9 +72,10 @@ Deno.serve(async (req) => {
       return erreur(existe ? 'Un compte existe déjà avec cet email.' : 'Création impossible.')
     }
 
-    // Le profil est créé par le trigger (rôle 'employe'). On applique le rôle demandé.
-    if (role === 'admin') {
-      await admin.from('profiles').update({ role }).eq('id', data.user.id)
+    // Le profil est créé par le trigger (rôle 'employe', sans équipe). On applique le rôle et l'équipe demandés.
+    const equipeId = typeof corps.equipe_id === 'string' && corps.equipe_id ? corps.equipe_id : null
+    if (role === 'admin' || equipeId) {
+      await admin.from('profiles').update({ role, equipe_id: equipeId }).eq('id', data.user.id)
     }
     return reponse({ id: data.user.id })
   }
@@ -93,6 +95,17 @@ Deno.serve(async (req) => {
 
     const { error } = await admin.from('profiles').update({ actif }).eq('id', id)
     if (error) return erreur('Mise à jour impossible.', 500)
+    return reponse({ ok: true })
+  }
+
+  // 4. Donner un nouveau mot de passe (employé qui a oublié le sien)
+  if (corps.action === 'motdepasse') {
+    const id = String(corps.id ?? '')
+    const motDePasse = String(corps.motDePasse ?? '')
+    if (!id) return erreur('Compte manquant.')
+    if (motDePasse.length < 8) return erreur('Le mot de passe doit faire au moins 8 caractères.')
+    const { error } = await admin.auth.admin.updateUserById(id, { password: motDePasse })
+    if (error) return erreur('Changement impossible.')
     return reponse({ ok: true })
   }
 

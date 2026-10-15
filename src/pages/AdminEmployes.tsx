@@ -17,6 +17,7 @@ export default function AdminEmployes() {
   const [message, setMessage] = useState<{ type: 'ok' | 'erreur'; texte: string } | null>(null)
   const [enCours, setEnCours] = useState<string | null>(null)
   const [creation, setCreation] = useState(false)
+  const [edition, setEdition] = useState<Profil | null>(null)
   const [equipes, setEquipes] = useState<Equipe[]>([])
   const [filtreEquipe, setFiltreEquipe] = useState('')
 
@@ -202,6 +203,13 @@ export default function AdminEmployes() {
                     <option value="employe">Employé</option>
                     <option value="admin">Admin</option>
                   </select>
+                  <button
+                    type="button"
+                    onClick={() => setEdition(p)}
+                    className="h-11 flex-1 rounded-lg border border-[#C9CCD4] px-3 text-sm font-semibold hover:bg-fond sm:h-10 sm:flex-none"
+                  >
+                    Modifier
+                  </button>
                   {!soiMeme && (
                     <button
                       type="button"
@@ -218,6 +226,19 @@ export default function AdminEmployes() {
           })}
           {visibles.length === 0 && <li className="p-5 text-gris">Aucun employé trouvé.</li>}
         </ul>
+      )}
+
+      {edition && (
+        <FenetreEdition
+          profil={edition}
+          soiMeme={edition.id === moi?.id}
+          onFermer={() => setEdition(null)}
+          onFait={(texte) => {
+            setEdition(null)
+            setMessage({ type: 'ok', texte })
+            void charger()
+          }}
+        />
       )}
 
       {creation && (
@@ -253,14 +274,7 @@ function FenetreCreation({
     setEnvoi(true)
     setErreur(null)
     const { equipe, ...compte } = v
-    const err = await gererEmploye({ action: 'creer', ...compte })
-    if (!err && equipe) {
-      // Le profil vient d'être créé : on le range dans l'équipe choisie.
-      await supabase
-        .from('profiles')
-        .update({ equipe_id: equipe })
-        .eq('email', compte.email.trim().toLowerCase())
-    }
+    const err = await gererEmploye({ action: 'creer', ...compte, equipe_id: equipe || null })
     setEnvoi(false)
     if (err) setErreur(err)
     else onCree(`${v.prenom} ${v.nom}`)
@@ -440,5 +454,119 @@ function GestionEquipes({
         </div>
       )}
     </section>
+  )
+}
+
+/** Mot de passe provisoire facile à dicter : 3 syllabes + 2 chiffres (ex. « bamoli47 »). */
+function motDePasseProvisoire() {
+  const c = 'bcdfghjklmnprstvz'
+  const v = 'aeiou'
+  const t = new Uint32Array(8)
+  crypto.getRandomValues(t)
+  let r = ''
+  for (let i = 0; i < 3; i++) r += c[t[i * 2] % c.length] + v[t[i * 2 + 1] % v.length]
+  return r + String(t[6] % 90 + 10) + c[t[7] % c.length]
+}
+
+/** Modifier le nom d'un employé et, si besoin, lui donner un nouveau mot de passe. */
+function FenetreEdition({
+  profil,
+  soiMeme,
+  onFermer,
+  onFait,
+}: {
+  profil: Profil
+  soiMeme: boolean
+  onFermer: () => void
+  onFait: (message: string) => void
+}) {
+  const [prenom, setPrenom] = useState(profil.prenom)
+  const [nom, setNom] = useState(profil.nom)
+  const [mdp, setMdp] = useState('')
+  const [erreur, setErreur] = useState<string | null>(null)
+  const [envoi, setEnvoi] = useState(false)
+
+  async function enregistrerNom(e: FormEvent) {
+    e.preventDefault()
+    if (!prenom.trim() || !nom.trim()) return
+    setEnvoi(true)
+    setErreur(null)
+    const { error } = await supabase
+      .from('profiles')
+      .update({ prenom: prenom.trim(), nom: nom.trim() })
+      .eq('id', profil.id)
+    setEnvoi(false)
+    if (error) return setErreur('Enregistrement impossible.')
+    onFait(`Nom enregistré : ${prenom.trim()} ${nom.trim()}.`)
+  }
+
+  async function changerMdp(e: FormEvent) {
+    e.preventDefault()
+    if (mdp.length < 8) return
+    setEnvoi(true)
+    setErreur(null)
+    const err = await gererEmploye({ action: 'motdepasse', id: profil.id, motDePasse: mdp })
+    setEnvoi(false)
+    if (err) return setErreur(err)
+    onFait(`Nouveau mot de passe de ${profil.prenom} : ${mdp} — donnez-le-lui, il pourra le changer dans « Mon compte ».`)
+  }
+
+  return (
+    <Fenetre titre={`Modifier ${profil.prenom} ${profil.nom}`} onFermer={onFermer}>
+      <form onSubmit={enregistrerNom} className="flex flex-col gap-4">
+        <div className="grid grid-cols-2 gap-3">
+          <label className={etiquette}>
+            Prénom
+            <input required value={prenom} maxLength={60} onChange={(e) => setPrenom(e.target.value)} className={champ} />
+          </label>
+          <label className={etiquette}>
+            Nom
+            <input required value={nom} maxLength={60} onChange={(e) => setNom(e.target.value)} className={champ} />
+          </label>
+        </div>
+        <button
+          type="submit"
+          disabled={envoi || !prenom.trim() || !nom.trim() || (prenom === profil.prenom && nom === profil.nom)}
+          className={boutonPrincipal}
+        >
+          Enregistrer le nom
+        </button>
+      </form>
+
+      {!soiMeme && (
+        <form onSubmit={changerMdp} className="mt-6 flex flex-col gap-3 border-t border-ligne pt-5">
+          <h3 className="font-bold">Mot de passe oublié ?</h3>
+          <p className="text-sm text-gris">Donnez-lui un nouveau mot de passe. Il pourra ensuite le changer dans « Mon compte ».</p>
+          <div className="flex gap-2">
+            <label className="sr-only" htmlFor="nouveau-mdp">
+              Nouveau mot de passe
+            </label>
+            <input
+              id="nouveau-mdp"
+              type="text"
+              minLength={8}
+              required
+              autoComplete="off"
+              placeholder="8 caractères minimum"
+              value={mdp}
+              onChange={(e) => setMdp(e.target.value)}
+              className={`${champ} flex-1`}
+            />
+            <button type="button" onClick={() => setMdp(motDePasseProvisoire())} className={`${boutonSecondaire} shrink-0`}>
+              Générer
+            </button>
+          </div>
+          <button type="submit" disabled={envoi || mdp.length < 8} className={boutonSecondaire}>
+            Donner ce mot de passe
+          </button>
+        </form>
+      )}
+
+      {erreur && (
+        <p role="alert" className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
+          {erreur}
+        </p>
+      )}
+    </Fenetre>
   )
 }

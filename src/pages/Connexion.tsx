@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { pageAccueil } from '../auth/pageAccueil'
 import { boutonPrincipal, champ, etiquette } from '../components/Fenetre'
-import { IconeCalendrier, IconeOeil, IconeOeilBarre } from '../components/Icones'
+import ChampMotDePasse from '../components/ChampMotDePasse'
+import { IconeCalendrier } from '../components/Icones'
 
 export default function Connexion() {
   const { chargement, profil, connexion } = useAuth()
@@ -11,7 +12,6 @@ export default function Connexion() {
   const [motDePasse, setMotDePasse] = useState('')
   const [erreur, setErreur] = useState<string | null>(null)
   const [envoi, setEnvoi] = useState(false)
-  const [voirMdp, setVoirMdp] = useState(false)
 
   if (!chargement && profil) return <Navigate to={pageAccueil(profil.role)} replace />
 
@@ -63,29 +63,15 @@ export default function Connexion() {
             />
           </label>
 
-          <div className={etiquette}>
-            <label htmlFor="mot-de-passe">Mot de passe</label>
-            <div className="relative">
-              <input
-                id="mot-de-passe"
-                type={voirMdp ? 'text' : 'password'}
-                required
-                autoComplete="current-password"
-                value={motDePasse}
-                onChange={(e) => setMotDePasse(e.target.value)}
-                className={`${champ} pr-12`}
-              />
-              <button
-                type="button"
-                onClick={() => setVoirMdp((v) => !v)}
-                aria-label={voirMdp ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
-                aria-pressed={voirMdp}
-                className="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-xl text-gris hover:text-encre"
-              >
-                {voirMdp ? <IconeOeilBarre width={20} height={20} /> : <IconeOeil width={20} height={20} />}
-              </button>
-            </div>
-          </div>
+          <ChampMotDePasse
+            libelle="Mot de passe"
+            valeur={motDePasse}
+            onChange={setMotDePasse}
+            autoComplete="current-password"
+          />
+          <Link to="/mot-de-passe-oublie" className="-mt-2 self-end text-sm font-semibold text-marque-fonce hover:underline">
+            Mot de passe oublié ?
+          </Link>
 
           {erreur && (
             <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">

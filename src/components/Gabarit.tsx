@@ -4,7 +4,7 @@ import { useAuth } from '../auth/AuthContext'
 import { initiales } from '../lib/couleurs'
 import { useCongesEnAttente } from '../lib/useCongesEnAttente'
 import BoutonInstaller from './BoutonInstaller'
-import { IconeCalendrier, IconeEquipe, IconeSortie, IconeSoleil } from './Icones'
+import { IconeCalendrier, IconeCompte, IconeEquipe, IconeSortie, IconeSoleil } from './Icones'
 
 interface Lien {
   vers: string
@@ -81,12 +81,18 @@ export default function Gabarit({
 
           <div className="ml-auto flex items-center gap-2.5">
             <BoutonInstaller />
-            <div className="hidden size-9 items-center justify-center rounded-full bg-nuit text-[13px] font-bold text-white sm:flex">
-              {initiales(profil?.prenom ?? '', profil?.nom ?? '')}
-            </div>
-            <span className="hidden text-sm font-semibold md:inline">
-              {profil?.prenom} {profil?.nom}
-            </span>
+            <NavLink
+              to="/mon-compte"
+              aria-label="Mon compte"
+              className="hidden items-center gap-2.5 rounded-full py-1 pr-2 pl-1 hover:bg-fond sm:flex"
+            >
+              <span className="flex size-9 items-center justify-center rounded-full bg-nuit text-[13px] font-bold text-white">
+                {initiales(profil?.prenom ?? '', profil?.nom ?? '')}
+              </span>
+              <span className="hidden text-sm font-semibold md:inline">
+                {profil?.prenom} {profil?.nom}
+              </span>
+            </NavLink>
             <button
               type="button"
               onClick={() => void deconnexion()}
@@ -124,10 +130,10 @@ export default function Gabarit({
             {l.texte}
           </NavLink>
         ))}
-        <button type="button" onClick={() => void deconnexion()} className={lienBas({ isActive: false })}>
-          <IconeSortie width={22} height={22} />
-          Déconnexion
-        </button>
+        <NavLink to="/mon-compte" className={lienBas}>
+          <IconeCompte width={22} height={22} />
+          Compte
+        </NavLink>
       </nav>
     </div>
   )
