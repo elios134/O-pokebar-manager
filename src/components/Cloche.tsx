@@ -22,9 +22,21 @@ function ilYA(iso: string) {
   return relatif.format(-Math.round(s / 86400), 'day')
 }
 
+// Gardée entre deux pages : le compteur ne clignote pas à chaque changement de page.
+let memoire: { moi: string; liste: Notification[] } | null = null
+
 /** Cloche dans l'en-tête : nombre de notifications non lues et liste. */
 export default function Cloche({ moi }: { moi: string }) {
-  const [liste, setListe] = useState<Notification[]>([])
+  const [liste, setListeEtat] = useState<Notification[]>(() => (memoire?.moi === moi ? memoire.liste : []))
+  const setListe = useCallback(
+    (valeur: Notification[] | ((l: Notification[]) => Notification[])) =>
+      setListeEtat((avant) => {
+        const l = typeof valeur === 'function' ? valeur(avant) : valeur
+        memoire = { moi, liste: l }
+        return l
+      }),
+    [moi],
+  )
   const [ouvert, setOuvert] = useState(false)
   const naviguer = useNavigate()
 
@@ -37,7 +49,7 @@ export default function Cloche({ moi }: { moi: string }) {
         .order('cree_le', { ascending: false })
         .limit(30)
         .then(({ data }) => setListe((data ?? []) as Notification[])),
-    [moi],
+    [moi, setListe],
   )
 
   useEffect(() => {
