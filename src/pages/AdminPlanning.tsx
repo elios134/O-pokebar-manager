@@ -21,13 +21,13 @@ import { heureLocale, jourLocal, jourSuivant, lienImpression, textePause } from 
 export default function AdminPlanning() {
   const calendrier = useRef<FullCalendar>(null)
   const [profils, setProfils] = useState<Profil[]>([])
-  const [caches, setCaches] = useState<Set<string>>(new Set())
   const [fenetre, setFenetre] = useState<ValeursHoraire | null>(null)
   const [planification, setPlanification] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [equipes, setEquipes] = useState<Equipe[]>([])
   const [equipe, setEquipe] = useState('')
+  const [employe, setEmploye] = useState('')
   const naviguer = useNavigate()
 
   useEffect(() => {
@@ -48,10 +48,10 @@ export default function AdminPlanning() {
   }, [profils])
 
   // Les fonctions du calendrier lisent toujours les dernières valeurs via cette référence.
-  const etat = useRef({ profils, couleurs, caches, equipe })
+  const etat = useRef({ profils, couleurs, equipe, employe })
   useLayoutEffect(() => {
-    etat.current = { profils, couleurs, caches, equipe }
-  }, [profils, couleurs, caches, equipe])
+    etat.current = { profils, couleurs, equipe, employe }
+  }, [profils, couleurs, equipe, employe])
 
   const chargerEvenements = useCallback(async (info: EventSourceFuncArg): Promise<EventInput[]> => {
     const [horaires, conges] = await Promise.all([
@@ -68,9 +68,14 @@ export default function AdminPlanning() {
       return []
     }
     setErreur(null)
-    const { profils, couleurs, caches, equipe } = etat.current
+    const { profils, couleurs, equipe, employe } = etat.current
+    // Filtre : équipe choisie (ou toutes), puis employé choisi (ou tous).
     const visible = (id: string) =>
-      !caches.has(id) && (!equipe || profils.find((x) => x.id === id)?.equipe_id === equipe)
+      (!employe || id === employe) &&
+      (!equipe ||
+        (equipe === 'aucune'
+          ? !profils.find((x) => x.id === id)?.equipe_id
+          : profils.find((x) => x.id === id)?.equipe_id === equipe))
     const nomCourt = (id: string) => {
       const p = profils.find((x) => x.id === id)
       return p ? `${p.prenom} ${p.nom.charAt(0)}.` : 'Employé'
@@ -126,16 +131,7 @@ export default function AdminPlanning() {
   // Recharge quand le filtre ou la liste des employés change.
   useEffect(() => {
     rafraichir()
-  }, [caches, profils, equipe, rafraichir])
-
-  function basculer(id: string) {
-    setCaches((avant) => {
-      const s = new Set(avant)
-      if (s.has(id)) s.delete(id)
-      else s.add(id)
-      return s
-    })
-  }
+  }, [profils, equipe, employe, rafraichir])
 
   function nouveau(debut?: Date, fin?: Date) {
     const d = debut ?? new Date()
@@ -200,6 +196,10 @@ export default function AdminPlanning() {
   }
 
   const actifs = profils.filter((p) => p.actif)
+  // Employés de l'équipe choisie (sous-filtre).
+  const membres = profils.filter((p) =>
+    !equipe ? true : equipe === 'aucune' ? !p.equipe_id : p.equipe_id === equipe,
+  )
 
   return (
     <Gabarit
@@ -209,7 +209,12 @@ export default function AdminPlanning() {
           <button
             type="button"
             onClick={() =>
-              naviguer(lienImpression(calendrier.current?.getApi().view.currentStart ?? new Date(), equipe || undefined))
+              naviguer(
+                lienImpression(
+                  calendrier.current?.getApi().view.currentStart ?? new Date(),
+                  equipe && equipe !== 'aucune' ? equipe : undefined,
+                ),
+              )
             }
             className="flex h-11 items-center justify-center rounded-xl border border-[#C9CCD4] bg-white px-4 font-semibold hover:bg-fond"
           >
@@ -220,7 +225,8 @@ export default function AdminPlanning() {
             onClick={() => setPlanification(true)}
             className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-marque bg-white px-4 font-bold text-marque-fonce hover:bg-marque-doux sm:flex-none"
           >
-            Planifier plusieurs jours
+            <span className="sm:hidden">Plusieurs jours</span>
+            <span className="hidden sm:inline">Planifier plusieurs jours</span>
           </button>
           <button
             type="button"
@@ -234,54 +240,64 @@ export default function AdminPlanning() {
       }
     >
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-        <aside className="lg:w-56 lg:shrink-0">
-          {equipes.length > 0 && (
-            <select
-              aria-label="Filtrer par équipe"
-              value={equipe}
-              onChange={(e) => setEquipe(e.target.value)}
-              className="mb-2 h-11 w-full rounded-xl border border-[#C9CCD4] bg-white px-3 text-sm font-semibold"
-            >
-              <option value="">Toutes les équipes</option>
-              {equipes.map((e) => (
-                <option key={e.id} value={e.id}>
-                  Équipe {e.nom}
-                </option>
-              ))}
-            </select>
-          )}
-          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 lg:mx-0 lg:flex-col lg:gap-1 lg:rounded-2xl lg:border lg:border-ligne lg:bg-white lg:p-3">
-            <div className="hidden px-1.5 pb-2 text-[13px] font-bold text-gris lg:block">Filtrer par employé</div>
-            {profils.filter((p) => !equipe || p.equipe_id === equipe).map((p) => {
-              const c = couleurs.get(p.id)!
-              const visible = !caches.has(p.id)
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => basculer(p.id)}
-                  aria-pressed={visible}
-                  className={`flex h-11 shrink-0 items-center gap-2.5 rounded-full border px-3.5 text-sm font-semibold whitespace-nowrap lg:rounded-lg lg:border-0 lg:px-2 lg:hover:bg-fond ${
-                    visible ? 'border-[#C9CCD4] bg-white' : 'border-ligne bg-fond text-gris lg:bg-transparent'
-                  }`}
-                >
-                  <span
-                    className="flex size-[18px] items-center justify-center rounded-[5px]"
-                    style={visible ? { background: c.trait } : { border: '2px solid #9AA0AC' }}
-                  >
-                    {visible && (
-                      <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M5 12l5 5L20 7" />
-                      </svg>
-                    )}
-                  </span>
-                  {p.prenom} {p.nom}
-                  {!p.actif && <span className="text-xs font-medium text-gris">(désactivé)</span>}
-                </button>
-              )
-            })}
-            {profils.length === 0 && !erreur && <p className="px-2 text-sm text-gris">Chargement…</p>}
+        <aside className="flex flex-col gap-3 lg:w-60 lg:shrink-0">
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-1 lg:rounded-2xl lg:border lg:border-ligne lg:bg-white lg:p-3">
+            <div className="flex flex-col gap-1">
+              <label htmlFor="filtre-equipe" className="text-[13px] font-bold text-gris">
+                Équipe
+              </label>
+              <select
+                id="filtre-equipe"
+                value={equipe}
+                onChange={(e) => {
+                  setEquipe(e.target.value)
+                  setEmploye('')
+                }}
+                className="h-11 w-full rounded-xl border border-[#C9CCD4] bg-white px-3 text-sm font-semibold text-encre"
+              >
+                <option value="">Toutes les équipes</option>
+                {equipes.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.nom}
+                  </option>
+                ))}
+                <option value="aucune">Sans équipe</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="filtre-employe" className="text-[13px] font-bold text-gris">
+                Employé
+              </label>
+              <select
+                id="filtre-employe"
+                value={employe}
+                onChange={(e) => setEmploye(e.target.value)}
+                className="h-11 w-full rounded-xl border border-[#C9CCD4] bg-white px-3 text-sm font-semibold text-encre"
+              >
+                <option value="">Tous les employés</option>
+                {membres.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.prenom} {p.nom}
+                    {p.actif ? '' : ' (désactivé)'}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
+
+          {/* Légende des couleurs pour les personnes affichées */}
+          <ul className="-mx-4 flex gap-x-4 gap-y-1 overflow-x-auto px-4 text-sm lg:mx-0 lg:flex-col lg:px-1">
+            {membres
+              .filter((p) => !employe || p.id === employe)
+              .map((p) => (
+                <li key={p.id} className="flex shrink-0 items-center gap-2 whitespace-nowrap">
+                  <span className="size-3 rounded-full" style={{ background: couleurs.get(p.id)?.trait }} />
+                  {p.prenom} {p.nom}
+                </li>
+              ))}
+            {profils.length === 0 && !erreur && <li className="text-gris">Chargement…</li>}
+            {profils.length > 0 && membres.length === 0 && <li className="text-gris">Aucun employé dans cette équipe.</li>}
+          </ul>
         </aside>
 
         <div className="min-w-0 flex-1">
