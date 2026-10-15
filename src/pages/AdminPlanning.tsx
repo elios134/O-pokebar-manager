@@ -11,12 +11,14 @@ import { useNavigate } from 'react-router-dom'
 import Calendrier from '../components/Calendrier'
 import FenetreHoraire, { type ValeursHoraire } from '../components/FenetreHoraire'
 import FenetrePlanification from '../components/FenetrePlanification'
+import FiltresPlanning from '../components/planning/FiltresPlanning'
 import Gabarit from '../components/Gabarit'
 import { IconePlus } from '../components/Icones'
 import { supabase } from '../lib/supabase'
 import { CHAMPS_CONGE, CHAMPS_PROFIL, CHAMPS_HORAIRE, type Conge, type Equipe, type Horaire, type Profil } from '../lib/types'
 import { couleurDe, type Couleur } from '../lib/couleurs'
-import { heureLocale, jourLocal, jourSuivant, lienImpression, textePause } from '../lib/dates'
+import { heureLocale, jourLocal, lienImpression } from '../lib/dates'
+import { evenementsPlanning } from '../lib/evenements'
 
 export default function AdminPlanning() {
   const calendrier = useRef<FullCalendar>(null)
@@ -69,61 +71,10 @@ export default function AdminPlanning() {
     }
     setErreur(null)
     const { profils, couleurs, equipe, employe } = etat.current
-    // Filtre : équipe choisie (ou toutes), puis employé choisi (ou tous).
-    const visible = (id: string) =>
-      (!employe || id === employe) &&
-      (!equipe ||
-        (equipe === 'aucune'
-          ? !profils.find((x) => x.id === id)?.equipe_id
-          : profils.find((x) => x.id === id)?.equipe_id === equipe))
-    const nomCourt = (id: string) => {
-      const p = profils.find((x) => x.id === id)
-      return p ? `${p.prenom} ${p.nom.charAt(0)}.` : 'Employé'
-    }
-
-    // Congés : sur la ligne « Congés » en haut du calendrier.
-    const evenementsConges: EventInput[] = ((conges.data ?? []) as Conge[])
-      .filter((c) => visible(c.employe_id))
-      .map((c) => {
-        const couleur = couleurs.get(c.employe_id) ?? couleurDe(0)
-        const accepte = c.statut === 'accepte'
-        return {
-          id: `conge-${c.id}`,
-          title: `${accepte ? 'Congé' : 'Congé demandé'} · ${nomCourt(c.employe_id)}`,
-          start: c.debut,
-          end: jourSuivant(c.fin),
-          allDay: true,
-          editable: false,
-          backgroundColor: accepte ? couleur.trait : '#FFFFFF',
-          borderColor: couleur.trait,
-          textColor: accepte ? '#FFFFFF' : couleur.texte,
-          classNames: accepte ? ['conge'] : ['conge', 'conge-attente'],
-          extendedProps: { conge: c },
-        }
-      })
-
-    return [
-      ...evenementsConges,
-      ...(horaires.data as Horaire[])
-      .filter((h) => visible(h.employe_id))
-      .map((h) => {
-        const p = profils.find((x) => x.id === h.employe_id)
-        const c = couleurs.get(h.employe_id) ?? couleurDe(0)
-        const nom = p ? `${p.prenom} ${p.nom.charAt(0)}.` : 'Employé'
-        return {
-          id: h.id,
-          title: [nom, h.note, textePause(h)]
-            .filter(Boolean)
-            .join(' · '),
-          start: h.debut,
-          end: h.fin,
-          backgroundColor: c.fond,
-          borderColor: c.trait,
-          textColor: c.texte,
-          extendedProps: { horaire: h, pause: h.pause_debut ? { debut: h.pause_debut, fin: h.pause_fin } : null },
-        }
-      }),
-    ]
+    return evenementsPlanning(horaires.data as Horaire[], (conges.data ?? []) as Conge[], profils, couleurs, {
+      equipe,
+      employe,
+    })
   }, [])
 
   const rafraichir = useCallback(() => calendrier.current?.getApi().refetchEvents(), [])
@@ -196,10 +147,6 @@ export default function AdminPlanning() {
   }
 
   const actifs = profils.filter((p) => p.actif)
-  // Employés de l'équipe choisie (sous-filtre).
-  const membres = profils.filter((p) =>
-    !equipe ? true : equipe === 'aucune' ? !p.equipe_id : p.equipe_id === equipe,
-  )
 
   return (
     <Gabarit
@@ -241,65 +188,19 @@ export default function AdminPlanning() {
       }
     >
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-        <aside className="flex flex-col gap-3 lg:w-60 lg:shrink-0">
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-1 lg:rounded-2xl lg:border lg:border-ligne lg:bg-white lg:p-3">
-            <div className="flex flex-col gap-1">
-              <label htmlFor="filtre-equipe" className="text-[13px] font-bold text-gris">
-                Équipe
-              </label>
-              <select
-                id="filtre-equipe"
-                value={equipe}
-                onChange={(e) => {
-                  setEquipe(e.target.value)
-                  setEmploye('')
-                }}
-                className="h-11 w-full rounded-xl border border-[#C9CCD4] bg-white px-3 text-sm font-semibold text-encre"
-              >
-                <option value="">Toutes les équipes</option>
-                {equipes.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.nom}
-                  </option>
-                ))}
-                <option value="aucune">Sans équipe</option>
-              </select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="filtre-employe" className="text-[13px] font-bold text-gris">
-                Employé
-              </label>
-              <select
-                id="filtre-employe"
-                value={employe}
-                onChange={(e) => setEmploye(e.target.value)}
-                className="h-11 w-full rounded-xl border border-[#C9CCD4] bg-white px-3 text-sm font-semibold text-encre"
-              >
-                <option value="">Tous les employés</option>
-                {membres.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.prenom} {p.nom}
-                    {p.actif ? '' : ' (désactivé)'}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Légende des couleurs pour les personnes affichées */}
-          <ul className="-mx-4 flex gap-x-4 gap-y-1 overflow-x-auto px-4 text-sm lg:mx-0 lg:flex-col lg:px-1">
-            {membres
-              .filter((p) => !employe || p.id === employe)
-              .map((p) => (
-                <li key={p.id} className="flex shrink-0 items-center gap-2 whitespace-nowrap">
-                  <span className="size-3 rounded-full" style={{ background: couleurs.get(p.id)?.trait }} />
-                  {p.prenom} {p.nom}
-                </li>
-              ))}
-            {profils.length === 0 && !erreur && <li className="text-gris">Chargement…</li>}
-            {profils.length > 0 && membres.length === 0 && <li className="text-gris">Aucun employé dans cette équipe.</li>}
-          </ul>
-        </aside>
+        <FiltresPlanning
+          profils={profils}
+          equipes={equipes}
+          couleurs={couleurs}
+          equipe={equipe}
+          employe={employe}
+          chargement={profils.length === 0 && !erreur}
+          onEquipe={(id) => {
+            setEquipe(id)
+            setEmploye('')
+          }}
+          onEmploye={setEmploye}
+        />
 
         <div className="min-w-0 flex-1">
           {erreur && (
