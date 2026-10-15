@@ -4,7 +4,6 @@ import { useAuth } from '../auth/AuthContext'
 import { pageAccueil } from '../auth/pageAccueil'
 import { boutonPrincipal, champ, etiquette } from '../components/Fenetre'
 import ChampMotDePasse from '../components/ChampMotDePasse'
-import { IconeCalendrier } from '../components/Icones'
 
 export default function Connexion() {
   const { chargement, profil, connexion } = useAuth()
@@ -24,11 +23,9 @@ export default function Connexion() {
 
   return (
     <main className="flex min-h-dvh flex-col bg-white lg:flex-row lg:bg-fond">
-      <section className="flex flex-col justify-between gap-8 bg-nuit px-6 pt-14 pb-8 text-white lg:w-[44%] lg:max-w-[560px] lg:p-14">
+      <section className="flex flex-col justify-between gap-8 bg-corail px-6 pt-14 pb-8 text-nuit lg:w-[44%] lg:max-w-[560px] lg:p-14">
         <div className="flex items-center gap-3">
-          <div className="flex size-11 items-center justify-center rounded-xl bg-white text-marque-fonce">
-            <IconeCalendrier width={24} height={24} />
-          </div>
+          <img src="/favicon.svg" alt="" className="size-11 rounded-xl ring-2 ring-white/70" />
           <span className="text-xl font-bold">O'pokebar · Planning</span>
         </div>
         <div>
@@ -37,11 +34,11 @@ export default function Connexion() {
             <br />
             toujours à jour.
           </p>
-          <p className="mt-4 hidden max-w-sm text-[17px] leading-relaxed text-[#D9DAF5] lg:block">
+          <p className="mt-4 hidden max-w-sm text-[17px] leading-relaxed text-nuit/85 lg:block">
             Consultez vos horaires de la semaine depuis votre ordinateur, votre tablette ou votre téléphone.
           </p>
         </div>
-        <div className="hidden text-[13px] text-[#C7C9F0] lg:block">O'pokebar</div>
+        <div className="hidden text-[13px] font-semibold text-nuit/80 lg:block">Café · Pâtisserie · Poke bowl</div>
       </section>
 
       <section className="flex flex-1 items-start justify-center px-6 py-8 lg:items-center">

@@ -6,10 +6,11 @@
   --color-gris: #5b6170;
   --color-ligne: #e3e5ea;
   --color-fond: #f4f5f7;
-  --color-marque: #4338ca;
-  --color-marque-fonce: #312e81;
-  --color-nuit: #1e1b4b;
-  --color-marque-doux: #eef0ff;
+  --color-marque: #c2453b;
+  --color-marque-fonce: #9a3129;
+  --color-nuit: #3b1a17;
+  --color-marque-doux: #fdecea;
+  --color-corail: #f1766c;
 }
 
 body {
@@ -19,7 +20,7 @@ body {
 /* ---------- Calendrier (FullCalendar) aux couleurs de l'app ---------- */
 .fc {
   --fc-border-color: #eef0f3;
-  --fc-today-bg-color: #f5f6ff;
+  --fc-today-bg-color: #fff4f2;
   --fc-now-indicator-color: #d6457e;
   --fc-page-bg-color: #ffffff;
   --fc-neutral-bg-color: #f8f9fb;
@@ -89,7 +90,7 @@ body {
   color: #9aa0ac;
 }
 .fc .fc-button:focus {
-  box-shadow: 0 0 0 3px #c7c9f0 !important;
+  box-shadow: 0 0 0 3px #f6c3bd !important;
 }
 .fc .fc-toolbar.fc-header-toolbar {
   margin-bottom: 12px;

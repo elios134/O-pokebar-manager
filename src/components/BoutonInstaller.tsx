@@ -78,7 +78,7 @@ export default function BoutonInstaller() {
       <button
         type="button"
         onClick={() => void installer()}
-        className="flex h-10 items-center gap-1.5 rounded-lg bg-marque-doux px-3 text-sm font-bold text-marque-fonce hover:bg-[#E2E5FF]"
+        className="flex h-10 items-center gap-1.5 rounded-lg bg-marque-doux px-3 text-sm font-bold text-marque-fonce hover:bg-[#FBDCD8]"
       >
         <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 3v12M7 10l5 5 5-5M5 21h14" />

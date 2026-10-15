@@ -314,7 +314,7 @@ export default function AdminPlanning() {
         type="button"
         onClick={() => nouveau()}
         aria-label="Ajouter un horaire"
-        className="fixed right-5 bottom-24 z-10 flex size-[60px] items-center justify-center rounded-2xl bg-marque text-white shadow-[0_8px_24px_rgba(67,56,202,0.35)] sm:hidden"
+        className="fixed right-5 bottom-24 z-10 flex size-[60px] items-center justify-center rounded-2xl bg-marque text-white shadow-[0_8px_24px_rgba(194,69,59,0.35)] sm:hidden"
       >
         <IconePlus width={26} height={26} />
       </button>
