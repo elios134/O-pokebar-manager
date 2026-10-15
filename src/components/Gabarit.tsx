@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext'
 import { initiales } from '../lib/couleurs'
 import { useCongesEnAttente, useEchangesATraiter } from '../lib/useCongesEnAttente'
 import BoutonInstaller from './BoutonInstaller'
+import Cloche from './Cloche'
 import { IconeCalendrier, IconeCompte, IconeEchange, IconeEquipe, IconeSortie, IconeSoleil } from './Icones'
 
 interface Lien {
@@ -84,6 +85,7 @@ export default function Gabarit({
 
           <div className="ml-auto flex items-center gap-2.5">
             <BoutonInstaller />
+            {profil && <Cloche moi={profil.id} />}
             <NavLink
               to="/mon-compte"
               aria-label="Mon compte"
