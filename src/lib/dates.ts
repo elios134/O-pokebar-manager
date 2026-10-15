@@ -81,9 +81,13 @@ export function jourSuivant(jour: string) {
   return jourLocal(d)
 }
 
-/** Lien vers la page « planning de la semaine » à imprimer / enregistrer en PDF */
-export function lienImpression(jourDeLaSemaine: Date, equipe?: string) {
-  const p = new URLSearchParams({ semaine: jourLocal(debutSemaine(jourDeLaSemaine)) })
-  if (equipe) p.set('equipe', equipe)
+/** Lien vers la page d'export PDF (semaine par défaut ; l'admin peut filtrer par équipe / employé). */
+export function lienImpression(
+  jour: Date,
+  options: { periode?: 'semaine' | 'mois'; equipe?: string; employe?: string } = {},
+) {
+  const p = new URLSearchParams({ date: jourLocal(jour), periode: options.periode ?? 'semaine' })
+  if (options.equipe) p.set('equipe', options.equipe)
+  if (options.employe) p.set('employe', options.employe)
   return `/impression?${p.toString()}`
 }

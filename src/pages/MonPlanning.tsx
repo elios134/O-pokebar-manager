@@ -116,7 +116,14 @@ export default function MonPlanning() {
       actions={
         <button
           type="button"
-          onClick={() => naviguer(lienImpression(calendrier.current?.getApi().view.currentStart ?? new Date()))}
+          onClick={() => {
+            const api = calendrier.current?.getApi()
+            naviguer(
+              lienImpression(api?.getDate() ?? new Date(), {
+                periode: api?.view.type === 'dayGridMonth' ? 'mois' : 'semaine',
+              }),
+            )
+          }}
           className="flex h-11 items-center rounded-xl border border-[#C9CCD4] bg-white px-4 font-semibold hover:bg-fond"
         >
           Exporter en PDF

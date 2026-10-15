@@ -210,10 +210,11 @@ export default function AdminPlanning() {
             type="button"
             onClick={() =>
               naviguer(
-                lienImpression(
-                  calendrier.current?.getApi().view.currentStart ?? new Date(),
-                  equipe && equipe !== 'aucune' ? equipe : undefined,
-                ),
+                lienImpression(calendrier.current?.getApi().getDate() ?? new Date(), {
+                  periode: calendrier.current?.getApi().view.type === 'dayGridMonth' ? 'mois' : 'semaine',
+                  equipe: equipe || undefined,
+                  employe: employe || undefined,
+                }),
               )
             }
             className="flex h-11 items-center justify-center rounded-xl border border-[#C9CCD4] bg-white px-4 font-semibold hover:bg-fond"
