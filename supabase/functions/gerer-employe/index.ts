@@ -1,5 +1,5 @@
 // Fonction serveur réservée aux admins : créer un compte, activer / désactiver un compte,
-// donner un nouveau mot de passe.
+// donner un nouveau mot de passe, changer l'email, supprimer un compte.
 // Elle utilise la clé secrète du projet, qui ne doit jamais aller dans le navigateur.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
@@ -106,6 +106,31 @@ Deno.serve(async (req) => {
     if (motDePasse.length < 8) return erreur('Le mot de passe doit faire au moins 8 caractères.')
     const { error } = await admin.auth.admin.updateUserById(id, { password: motDePasse })
     if (error) return erreur('Changement impossible.')
+    return reponse({ ok: true })
+  }
+
+  // 5. Changer l'email de connexion (y compris le sien pour un admin)
+  if (corps.action === 'email') {
+    const id = String(corps.id ?? '')
+    const email = String(corps.email ?? '').trim().toLowerCase()
+    if (!id) return erreur('Compte manquant.')
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return erreur('Email invalide.')
+    const { error } = await admin.auth.admin.updateUserById(id, { email, email_confirm: true })
+    if (error) {
+      const existe = /already|registered|exists/i.test(error.message)
+      return erreur(existe ? 'Un compte existe déjà avec cet email.' : 'Changement impossible.')
+    }
+    await admin.from('profiles').update({ email }).eq('id', id)
+    return reponse({ ok: true })
+  }
+
+  // 6. Supprimer un compte (avec ses horaires et ses congés)
+  if (corps.action === 'supprimer') {
+    const id = String(corps.id ?? '')
+    if (!id) return erreur('Compte manquant.')
+    if (id === appelant.user.id) return erreur('Vous ne pouvez pas supprimer votre propre compte.')
+    const { error } = await admin.auth.admin.deleteUser(id)
+    if (error) return erreur('Suppression impossible.')
     return reponse({ ok: true })
   }
 

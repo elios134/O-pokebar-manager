@@ -2,10 +2,10 @@ import type { ReactNode, SVGProps } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { initiales } from '../lib/couleurs'
-import { useCongesEnAttente, useEchangesATraiter } from '../lib/useCongesEnAttente'
+import { useCongesEnAttente } from '../lib/useCongesEnAttente'
 import BoutonInstaller from './BoutonInstaller'
 import Cloche from './Cloche'
-import { IconeCalendrier, IconeCompte, IconeEchange, IconeEquipe, IconeSortie, IconeSoleil } from './Icones'
+import { IconeCalendrier, IconeCompte, IconeEquipe, IconeSortie, IconeSoleil } from './Icones'
 
 interface Lien {
   vers: string
@@ -45,19 +45,16 @@ export default function Gabarit({
   const { profil, deconnexion } = useAuth()
   const admin = profil?.role === 'admin'
   const enAttente = useCongesEnAttente(admin)
-  const echanges = useEchangesATraiter(admin, profil?.id)
 
   const liens: Lien[] = admin
     ? [
         { vers: '/admin/planning', texte: 'Planning', icone: IconeCalendrier },
         { vers: '/admin/employes', texte: 'Employés', icone: IconeEquipe },
         { vers: '/admin/conges', texte: 'Congés', icone: IconeSoleil, badge: enAttente },
-        { vers: '/admin/echanges', texte: 'Échanges', icone: IconeEchange, badge: echanges },
       ]
     : [
         { vers: '/mon-planning', texte: 'Planning', icone: IconeCalendrier },
         { vers: '/mes-conges', texte: 'Congés', icone: IconeSoleil },
-        { vers: '/echanges', texte: 'Échanges', icone: IconeEchange, badge: echanges },
       ]
 
   return (

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import Fenetre, { boutonPrincipal, boutonSecondaire, champ, etiquette } from '../components/Fenetre'
+import FormulaireEmail from '../components/FormulaireEmail'
 import Gabarit from '../components/Gabarit'
 import { IconePlus, IconeRecherche } from '../components/Icones'
 import { couleurDe, initiales } from '../lib/couleurs'
@@ -468,7 +469,7 @@ function motDePasseProvisoire() {
   return r + String(t[6] % 90 + 10) + c[t[7] % c.length]
 }
 
-/** Modifier le nom d'un employé et, si besoin, lui donner un nouveau mot de passe. */
+/** Modifier le nom et l'email d'un employé, lui donner un nouveau mot de passe, ou supprimer son compte. */
 function FenetreEdition({
   profil,
   soiMeme,
@@ -485,6 +486,16 @@ function FenetreEdition({
   const [mdp, setMdp] = useState('')
   const [erreur, setErreur] = useState<string | null>(null)
   const [envoi, setEnvoi] = useState(false)
+  const [confirmerSuppression, setConfirmerSuppression] = useState(false)
+
+  async function supprimer() {
+    setEnvoi(true)
+    setErreur(null)
+    const err = await gererEmploye({ action: 'supprimer', id: profil.id })
+    setEnvoi(false)
+    if (err) return setErreur(err)
+    onFait(`Compte de ${profil.prenom} ${profil.nom} supprimé.`)
+  }
 
   async function enregistrerNom(e: FormEvent) {
     e.preventDefault()
@@ -533,6 +544,14 @@ function FenetreEdition({
         </button>
       </form>
 
+      <div className="mt-6 border-t border-ligne pt-5">
+        <FormulaireEmail
+          id={profil.id}
+          emailActuel={profil.email}
+          onChange={(r) => (r.type === 'ok' ? onFait(r.texte) : setErreur(r.texte))}
+        />
+      </div>
+
       {!soiMeme && (
         <form onSubmit={changerMdp} className="mt-6 flex flex-col gap-3 border-t border-ligne pt-5">
           <h3 className="font-bold">Mot de passe oublié ?</h3>
@@ -560,6 +579,46 @@ function FenetreEdition({
             Donner ce mot de passe
           </button>
         </form>
+      )}
+
+      {!soiMeme && (
+        <div className="mt-6 flex flex-col gap-3 border-t border-ligne pt-5">
+          <h3 className="font-bold text-[#9B1C1C]">Supprimer le compte</h3>
+          {!confirmerSuppression ? (
+            <>
+              <p className="text-sm text-gris">
+                Supprime définitivement le compte, ses horaires et ses congés. Pour garder l'historique, utilisez plutôt
+                « Désactiver ».
+              </p>
+              <button
+                type="button"
+                onClick={() => setConfirmerSuppression(true)}
+                className="h-11 rounded-xl border border-[#F1B4B4] font-bold text-[#9B1C1C] hover:bg-red-50"
+              >
+                Supprimer {profil.prenom} {profil.nom}
+              </button>
+            </>
+          ) : (
+            <>
+              <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-800">
+                Vraiment supprimer {profil.prenom} {profil.nom} ? Cette action ne peut pas être annulée.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setConfirmerSuppression(false)} className={boutonSecondaire}>
+                  Non, garder
+                </button>
+                <button
+                  type="button"
+                  disabled={envoi}
+                  onClick={() => void supprimer()}
+                  className="h-12 rounded-xl bg-[#B42318] font-bold text-white hover:bg-[#912018] disabled:opacity-60 sm:h-11"
+                >
+                  {envoi ? 'Suppression…' : 'Oui, supprimer'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       )}
 
       {erreur && (

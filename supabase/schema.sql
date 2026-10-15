@@ -461,6 +461,15 @@ grant execute on function public.repondre_echange(uuid, boolean) to authenticate
 grant execute on function public.annuler_echange(uuid) to authenticated;
 grant execute on function public.valider_echange(uuid, boolean) to authenticated;
 
+-- Échanges d'horaires retirés de l'application pour l'instant : fonctions coupées.
+revoke execute on function public.collegues() from authenticated;
+revoke execute on function public.horaires_collegue(uuid) from authenticated;
+revoke execute on function public.mes_echanges() from authenticated;
+revoke execute on function public.proposer_echange(uuid, uuid, uuid, text) from authenticated;
+revoke execute on function public.repondre_echange(uuid, boolean) from authenticated;
+revoke execute on function public.annuler_echange(uuid) from authenticated;
+revoke execute on function public.valider_echange(uuid, boolean) from authenticated;
+
 -- =====================================================================
 -- Notifications dans l'appli (créées automatiquement par la base)
 -- =====================================================================
@@ -486,7 +495,7 @@ grant update (lue) on public.notifications to authenticated;
 
 -- ---------- Outils ----------
 create or replace function prive.texte_horaire(d timestamptz, f timestamptz)
-returns text language sql immutable as $$
+returns text language sql immutable set search_path = pg_catalog as $$
   select 'le ' || to_char(d at time zone 'Europe/Paris', 'DD/MM') || ' de '
          || to_char(d at time zone 'Europe/Paris', 'HH24:MI') || ' à '
          || to_char(f at time zone 'Europe/Paris', 'HH24:MI');

@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import ChampMotDePasse from '../components/ChampMotDePasse'
 import { boutonPrincipal } from '../components/Fenetre'
+import FormulaireEmail from '../components/FormulaireEmail'
 import Gabarit from '../components/Gabarit'
 import { IconeSortie } from '../components/Icones'
 import { supabase } from '../lib/supabase'
@@ -63,7 +64,21 @@ export default function MonCompte() {
             <dt className="text-gris">Équipe</dt>
             <dd className="font-semibold">{equipe ?? 'Aucune'}</dd>
           </dl>
-          <p className="mt-3 text-xs text-gris">Une erreur ? Demandez à votre responsable de la corriger.</p>
+          {profil?.role === 'admin' ? (
+            <div className="mt-4 border-t border-ligne pt-4">
+              <FormulaireEmail
+                id={profil.id}
+                emailActuel={profil.email}
+                onChange={(r) => {
+                  setMessage(r)
+                  // Recharge pour afficher le nouvel email partout.
+                  if (r.type === 'ok') window.setTimeout(() => window.location.reload(), 1500)
+                }}
+              />
+            </div>
+          ) : (
+            <p className="mt-3 text-xs text-gris">Une erreur ? Demandez à votre responsable de la corriger.</p>
+          )}
           <button
             type="button"
             onClick={() => void deconnexion()}

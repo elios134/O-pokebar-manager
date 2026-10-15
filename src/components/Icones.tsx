@@ -76,11 +76,6 @@ export const IconeCompte = (p: SVGProps<SVGSVGElement>) => (
     <path d="M4 21v-1a7 7 0 0 1 7-7h2a7 7 0 0 1 7 7v1" />
   </Base>
 )
-export const IconeEchange = (p: SVGProps<SVGSVGElement>) => (
-  <Base {...p}>
-    <path d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7" />
-  </Base>
-)
 export const IconeCloche = (p: SVGProps<SVGSVGElement>) => (
   <Base {...p}>
     <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0" />
