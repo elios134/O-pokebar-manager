@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthContext'
+import MiseAJour from './components/pwa/MiseAJour'
 import { Protege, RedirectionAccueil } from './auth/Protection'
 import AdminConges from './pages/AdminConges'
 import AdminEmployes from './pages/AdminEmployes'
@@ -15,6 +16,7 @@ import MonPlanning from './pages/MonPlanning'
 function App() {
   return (
     <AuthProvider>
+      <MiseAJour />
       <BrowserRouter>
         <Routes>
           <Route path="/connexion" element={<Connexion />} />

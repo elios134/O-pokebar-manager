@@ -8,7 +8,8 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // Une nouvelle version attend l'accord de la personne (message « Mettre à jour »).
+      registerType: 'prompt',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
         name: "O'pokebar · Planning",

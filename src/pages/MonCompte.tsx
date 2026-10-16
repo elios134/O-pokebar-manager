@@ -4,6 +4,7 @@ import ChampMotDePasse from '../components/ChampMotDePasse'
 import { boutonPrincipal } from '../components/Fenetre'
 import FormulaireEmail from '../components/FormulaireEmail'
 import Gabarit from '../components/Gabarit'
+import { CarteInstallation } from '../components/pwa/Installation'
 import { IconeSortie } from '../components/Icones'
 import { supabase } from '../lib/supabase'
 
@@ -125,6 +126,8 @@ export default function MonCompte() {
             {envoi ? 'Enregistrement…' : 'Changer le mot de passe'}
           </button>
         </form>
+
+        <CarteInstallation />
       </div>
     </Gabarit>
   )

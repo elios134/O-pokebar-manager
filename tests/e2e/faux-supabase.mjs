@@ -96,9 +96,11 @@ export async function brancher(page, db) {
   page.on('pageerror', (e) => console.log('ERREUR PAGE', e.message))
   await page.route('http://faux-supabase.test/**', async (route) => {
     const req = route.request(); const url = new URL(req.url()); const m = req.method()
+    if (db.horsLigne) return route.abort('internetdisconnected')
     if (url.pathname === '/auth/v1/token') {
+      if (url.searchParams.get('grant_type') === 'refresh_token' && db.dernierEmail) return route.fulfill({ json: session(db, db.dernierEmail) })
       const { email, password } = req.postDataJSON()
-      if (db.comptes[email] && password === (db.motsDePasse?.[email] ?? 'secret')) return route.fulfill({ json: session(db, email) })
+      if (db.comptes[email] && password === (db.motsDePasse?.[email] ?? 'secret')) { db.dernierEmail = email; return route.fulfill({ json: session(db, email) }) }
       return route.fulfill({ status: 400, json: { code: 'invalid_credentials', msg: 'Invalid login credentials', message: 'Invalid login credentials' } })
     }
     if (url.pathname === '/auth/v1/logout') return route.fulfill({ status: 204, body: '' })

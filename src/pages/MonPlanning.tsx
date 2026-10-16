@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase'
 import { CHAMPS_CONGE, CHAMPS_HORAIRE, type Conge, type Horaire } from '../lib/types'
 import { couleurDe } from '../lib/couleurs'
 import { debutSemaine, dureeHeures, formatHeures, formatJour, heureLocale, jourLocal, jourSuivant, textePause, lienImpression } from '../lib/dates'
+import { garder, relire, texteQuand } from '../lib/horsLigne'
 
 const COULEUR = couleurDe(0)
 
@@ -18,15 +19,92 @@ interface Resume {
   prochain: Horaire | null
 }
 
+/** Planning gardé sur l'appareil pour l'afficher sans réseau. */
+interface PlanningGarde {
+  horaires: Horaire[]
+  conges: Conge[]
+}
+
+const cleGarde = (id: string) => `planning:${id}`
+const chevauche = (h: Horaire, de: Date, a: Date) => new Date(h.debut) < a && new Date(h.fin) > de
+const congeDans = (c: Conge, jourDe: string, jourA: string) => c.debut <= jourA && c.fin >= jourDe
+
+/** Remplace dans la copie locale tout ce qui concerne la période lue par ce qui vient d'arriver. */
+function mettreDeCote(id: string, horaires: Horaire[], conges: Conge[], de: Date, a: Date) {
+  const avant = relire<PlanningGarde>(cleGarde(id))?.valeur ?? { horaires: [], conges: [] }
+  const [jourDe, jourA] = [jourLocal(de), jourLocal(a)]
+  garder(cleGarde(id), {
+    horaires: [...avant.horaires.filter((h) => !chevauche(h, de, a)), ...horaires],
+    conges: [...avant.conges.filter((c) => !congeDans(c, jourDe, jourA)), ...conges],
+  })
+}
+
+function evenements(horaires: Horaire[], conges: Conge[]): EventInput[] {
+  const evenementsConges: EventInput[] = conges.map((c) => ({
+    id: `conge-${c.id}`,
+    title: c.statut === 'accepte' ? 'Congé' : 'Congé demandé (en attente)',
+    start: c.debut,
+    end: jourSuivant(c.fin),
+    allDay: true,
+    backgroundColor: c.statut === 'accepte' ? COULEUR.trait : '#FFFFFF',
+    borderColor: COULEUR.trait,
+    textColor: c.statut === 'accepte' ? '#FFFFFF' : COULEUR.texte,
+    classNames: c.statut === 'accepte' ? ['conge'] : ['conge', 'conge-attente'],
+  }))
+  return [
+    ...evenementsConges,
+    ...horaires.map((h) => ({
+      id: h.id,
+      title: [h.note || 'Service', textePause(h)].filter(Boolean).join(' · '),
+      start: h.debut,
+      end: h.fin,
+      backgroundColor: COULEUR.fond,
+      borderColor: COULEUR.trait,
+      textColor: COULEUR.texte,
+      extendedProps: { pause: h.pause_debut ? { debut: h.pause_debut, fin: h.pause_fin } : null },
+    })),
+  ]
+}
+
+function calculerResume(horaires: Horaire[]): Resume {
+  const lundi = debutSemaine(new Date())
+  const lundiSuivant = new Date(lundi)
+  lundiSuivant.setDate(lundi.getDate() + 7)
+  const semaine = horaires.filter((h) => new Date(h.debut) >= lundi && new Date(h.debut) < lundiSuivant)
+  const maintenant = new Date()
+  return {
+    heures: semaine.reduce((t, h) => t + dureeHeures(new Date(h.debut), new Date(h.fin), h.pause_minutes), 0),
+    services: semaine.length,
+    prochain: [...horaires].sort((x, y) => x.debut.localeCompare(y.debut)).find((h) => new Date(h.fin) > maintenant) ?? null,
+  }
+}
+
 export default function MonPlanning() {
   const { profil } = useAuth()
   const [resume, setResume] = useState<Resume | null>(null)
   const [erreur, setErreur] = useState<string | null>(null)
+  // Date des données gardées quand on les affiche faute de réseau.
+  const [garde, setGarde] = useState<number | null>(null)
   const calendrier = useRef<FullCalendar>(null)
   const naviguer = useNavigate()
 
   const chargerEvenements = useCallback(
     async (info: EventSourceFuncArg): Promise<EventInput[]> => {
+      // Pas de réseau : on montre ce qui a été gardé sur l'appareil.
+      const depuisCopie = () => {
+        const copie = relire<PlanningGarde>(cleGarde(profil!.id))
+        if (!copie) {
+          setErreur('Impossible de charger le planning. Réessayez.')
+          return []
+        }
+        setErreur(null)
+        setGarde(copie.quand)
+        return evenements(
+          copie.valeur.horaires.filter((h) => chevauche(h, info.start, info.end)),
+          copie.valeur.conges.filter((c) => congeDans(c, jourLocal(info.start), jourLocal(info.end))),
+        )
+      }
+      if (!navigator.onLine) return depuisCopie()
       const [horaires, conges] = await Promise.all([
         supabase
           .from('shifts')
@@ -43,70 +121,47 @@ export default function MonPlanning() {
           .lte('debut', jourLocal(info.end))
           .gte('fin', jourLocal(info.start)),
       ])
-      if (horaires.error) {
-        setErreur('Impossible de charger le planning. Réessayez.')
-        return []
-      }
+      if (horaires.error || conges.error) return depuisCopie()
       setErreur(null)
-      const evenementsConges: EventInput[] = ((conges.data ?? []) as Conge[]).map((c) => ({
-        id: `conge-${c.id}`,
-        title: c.statut === 'accepte' ? 'Congé' : 'Congé demandé (en attente)',
-        start: c.debut,
-        end: jourSuivant(c.fin),
-        allDay: true,
-        backgroundColor: c.statut === 'accepte' ? COULEUR.trait : '#FFFFFF',
-        borderColor: COULEUR.trait,
-        textColor: c.statut === 'accepte' ? '#FFFFFF' : COULEUR.texte,
-        classNames: c.statut === 'accepte' ? ['conge'] : ['conge', 'conge-attente'],
-      }))
-      return [...evenementsConges, ...(horaires.data as Horaire[]).map((h) => ({
-        id: h.id,
-        title: [h.note || 'Service', textePause(h)]
-          .filter(Boolean)
-          .join(' · '),
-        start: h.debut,
-        end: h.fin,
-        backgroundColor: COULEUR.fond,
-        borderColor: COULEUR.trait,
-        textColor: COULEUR.texte,
-        extendedProps: { pause: h.pause_debut ? { debut: h.pause_debut, fin: h.pause_fin } : null },
-      }))]
+      setGarde(null)
+      mettreDeCote(profil!.id, horaires.data as Horaire[], (conges.data ?? []) as Conge[], info.start, info.end)
+      return evenements(horaires.data as Horaire[], (conges.data ?? []) as Conge[])
     },
     [profil],
   )
 
+  // Résumé de la semaine, et les semaines à venir mises de côté pour les consulter sans réseau.
   useEffect(() => {
     if (!profil) return
-    const lundi = debutSemaine(new Date())
-    const lundiSuivant = new Date(lundi)
-    lundiSuivant.setDate(lundi.getDate() + 7)
-    const maintenant = new Date().toISOString()
+    const copie = () => {
+      const c = relire<PlanningGarde>(cleGarde(profil.id))
+      if (c) setResume(calculerResume(c.valeur.horaires))
+    }
+    if (!navigator.onLine) return copie()
+    const de = debutSemaine(new Date())
+    de.setDate(de.getDate() - 7)
+    const a = new Date(de)
+    a.setDate(a.getDate() + 7 * 8)
 
     void Promise.all([
       supabase
         .from('shifts')
-        .select('debut, fin, pause_minutes')
-        .eq('employe_id', profil.id)
-        .gte('debut', lundi.toISOString())
-        .lt('debut', lundiSuivant.toISOString()),
-      supabase
-        .from('shifts')
         .select(CHAMPS_HORAIRE)
         .eq('employe_id', profil.id)
-        .gt('fin', maintenant)
-        .order('debut')
-        .limit(1)
-        .maybeSingle(),
-    ]).then(([semaine, prochain]) => {
-      const lignes = (semaine.data ?? []) as Pick<Horaire, 'debut' | 'fin' | 'pause_minutes'>[]
-      setResume({
-        heures: lignes.reduce(
-          (t, h) => t + dureeHeures(new Date(h.debut), new Date(h.fin), h.pause_minutes),
-          0,
-        ),
-        services: lignes.length,
-        prochain: (prochain.data as Horaire | null) ?? null,
-      })
+        .lt('debut', a.toISOString())
+        .gt('fin', de.toISOString())
+        .order('debut'),
+      supabase
+        .from('conges')
+        .select(CHAMPS_CONGE)
+        .eq('employe_id', profil.id)
+        .neq('statut', 'refuse')
+        .lte('debut', jourLocal(a))
+        .gte('fin', jourLocal(de)),
+    ]).then(([horaires, conges]) => {
+      if (horaires.error || conges.error) return copie()
+      mettreDeCote(profil.id, horaires.data as Horaire[], (conges.data ?? []) as Conge[], de, a)
+      setResume(calculerResume(horaires.data as Horaire[]))
     })
   }, [profil])
 
@@ -135,6 +190,11 @@ export default function MonPlanning() {
           {erreur && (
             <p role="alert" className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
               {erreur}
+            </p>
+          )}
+          {garde && (
+            <p role="status" className="mb-3 rounded-lg bg-[#FFF1C2] px-3 py-2 text-sm text-[#6B4E00]">
+              Hors connexion : planning enregistré sur ce téléphone le {texteQuand(garde)}.
             </p>
           )}
           <Calendrier ref={calendrier} events={chargerEvenements} />

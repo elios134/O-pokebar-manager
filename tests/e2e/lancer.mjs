@@ -38,7 +38,11 @@ for (let i = 0; i < 50; i++) {
 }
 
 // 3. Chaque fichier de test, avec le fuseau horaire de Paris
-const fichiers = readdirSync(ici).filter((f) => /^\d\d-.*\.mjs$/.test(f)).sort()
+// `npm run test:e2e -- 08 09` : seulement les fichiers dont le nom commence ainsi.
+const choix = process.argv.slice(2)
+const fichiers = readdirSync(ici)
+  .filter((f) => /^\d\d-.*\.mjs$/.test(f) && (!choix.length || choix.some((c) => f.startsWith(c))))
+  .sort()
 let echecs = 0
 for (const f of fichiers) {
   console.log(`\n=== ${f}`)

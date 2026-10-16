@@ -2,8 +2,9 @@ import type { ReactNode, SVGProps } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { initiales } from '../lib/couleurs'
+import { useEnLigne } from '../lib/horsLigne'
 import { useCongesEnAttente } from '../lib/useCongesEnAttente'
-import BoutonInstaller from './BoutonInstaller'
+import { BoutonInstaller } from './pwa/Installation'
 import Cloche from './Cloche'
 import { IconeCalendrier, IconeCompte, IconeEquipe, IconeSortie, IconeSoleil } from './Icones'
 
@@ -45,6 +46,7 @@ export default function Gabarit({
   const { profil, deconnexion } = useAuth()
   const admin = profil?.role === 'admin'
   const enAttente = useCongesEnAttente(admin)
+  const enLigne = useEnLigne()
 
   const liens: Lien[] = admin
     ? [
@@ -106,6 +108,13 @@ export default function Gabarit({
           </div>
         </div>
       </header>
+
+      {!enLigne && (
+        <div role="status" className="border-b border-[#F2D49A] bg-[#FFF1C2] px-4 py-2 text-center text-sm font-semibold text-[#6B4E00]">
+          Pas de connexion internet.{' '}
+          {admin ? 'Les changements ne pourront pas être enregistrés.' : 'Vous voyez le planning enregistré sur ce téléphone.'}
+        </div>
+      )}
 
       <main className="mx-auto max-w-7xl px-4 py-5 sm:px-8 sm:py-6">
         <div className="mb-4 flex flex-wrap items-center gap-3">

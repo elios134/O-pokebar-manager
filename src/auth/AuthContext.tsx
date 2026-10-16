@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
+import { dernierCompte, garder, relire, toutEffacer } from '../lib/horsLigne'
 import { supabase } from '../lib/supabase'
 import { CHAMPS_PROFIL, type Profil } from '../lib/types'
 
@@ -13,29 +14,45 @@ interface AuthValeur {
 
 const AuthContext = createContext<AuthValeur | null>(null)
 
-async function chargerProfil(id: string): Promise<Profil | null> {
+/** Profil du compte ; sans réseau, celui gardé sur l'appareil (`horsLigne` vaut alors true). */
+async function chargerProfil(id: string): Promise<{ profil: Profil | null; horsLigne: boolean }> {
   const { data, error } = await supabase
     .from('profiles')
     .select(CHAMPS_PROFIL)
     .eq('id', id)
     .maybeSingle()
-  if (error) return null
-  return data
+  if (error) return { profil: relire<Profil>(`profil:${id}`)?.valeur ?? null, horsLigne: true }
+  if (data) garder(`profil:${id}`, data)
+  return { profil: data, horsLigne: false }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [chargement, setChargement] = useState(true)
+  // Sans réseau au démarrage : on affiche tout de suite le dernier compte gardé sur l'appareil,
+  // sans attendre que Supabase abandonne ses tentatives de connexion.
+  const [profilGarde] = useState(() => {
+    const id = navigator.onLine ? null : dernierCompte()
+    return id ? (relire<Profil>(`profil:${id}`)?.valeur ?? null) : null
+  })
+  const [chargement, setChargement] = useState(!profilGarde)
   const [session, setSession] = useState<Session | null>(null)
-  const [profil, setProfil] = useState<Profil | null>(null)
+  const [profil, setProfil] = useState<Profil | null>(profilGarde)
 
   useEffect(() => {
     let annule = false
 
     async function appliquer(s: Session | null) {
-      const p = s ? await chargerProfil(s.user.id) : null
+      // Sans réseau et session expirée : on montre quand même les données gardées du dernier compte.
+      if (!s && !navigator.onLine) {
+        const id = dernierCompte()
+        setProfil(id ? (relire<Profil>(`profil:${id}`)?.valeur ?? null) : null)
+        setChargement(false)
+        return
+      }
+      const r = s ? await chargerProfil(s.user.id) : null
       if (annule) return
-      // Compte désactivé ou profil introuvable : on ferme la session.
-      if (s && (!p || !p.actif)) {
+      const p = r?.profil ?? null
+      // Compte désactivé ou profil introuvable : on ferme la session (pas sans réseau, où on ne peut pas savoir).
+      if (s && !r?.horsLigne && (!p || !p.actif)) {
         await supabase.auth.signOut()
         if (annule) return
         setSession(null)
@@ -56,9 +73,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setTimeout(() => void appliquer(s), 0)
     })
 
+    // Retour du réseau : on revérifie la session (elle se renouvelle si besoin).
+    const reseauRevenu = () => void supabase.auth.getSession().then(({ data: d }) => appliquer(d.session))
+    window.addEventListener('online', reseauRevenu)
+
     return () => {
       annule = true
       data.subscription.unsubscribe()
+      window.removeEventListener('online', reseauRevenu)
     }
   }, [])
 
@@ -69,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ? 'Email ou mot de passe incorrect.'
         : 'Connexion impossible. Réessayez.'
     }
-    const p = await chargerProfil(data.user.id)
+    const { profil: p } = await chargerProfil(data.user.id)
     if (!p || !p.actif) {
       await supabase.auth.signOut()
       return 'Ce compte est désactivé. Contactez un administrateur.'
@@ -80,6 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function deconnexion() {
+    toutEffacer()
     await supabase.auth.signOut()
     setSession(null)
     setProfil(null)

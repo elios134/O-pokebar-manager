@@ -4,8 +4,8 @@ const B = process.env.ADRESSE ?? 'http://localhost:5180', CAP = process.argv[2] 
 let ok = 0, ko = 0
 const verif = (nom, cond) => { cond ? ok++ : ko++; console.log(cond ? '✔' : '✘', nom) }
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined })
-async function ouvrir(db, taille, sw = 'block') {
-  const ctx = await browser.newContext({ viewport: taille, locale: 'fr-FR', timezoneId: 'Europe/Paris', serviceWorkers: sw })
+async function ouvrir(db, taille, sw = 'block', userAgent) {
+  const ctx = await browser.newContext({ viewport: taille, locale: 'fr-FR', timezoneId: 'Europe/Paris', serviceWorkers: sw, ...(userAgent ? { userAgent } : {}) })
   const page = await ctx.newPage(); await brancher(page, db); page.on('dialog', (d) => d.accept())
   return { ctx, page }
 }
@@ -19,7 +19,8 @@ const db = creerBase()
 
 // ---------- Bouton Installer (navigateur sans installation directe, comme Brave) ----------
 {
-  const { ctx, page } = await ouvrir(db, TEL)
+  const ANDROID = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Mobile Safari/537.36'
+  const { ctx, page } = await ouvrir(db, TEL, 'block', ANDROID)
   await connecter(page, 'lea@x.fr'); await page.waitForURL('**/mon-planning')
   const bouton = page.getByRole('button', { name: 'Installer' })
   await bouton.waitFor({ timeout: 5000 }).catch(() => {})
@@ -29,7 +30,20 @@ const db = creerBase()
   verif('installer : explications affichées', (await aide.innerText()).includes('écran'))
   await page.screenshot({ path: `${CAP}/mob-installer.png` })
   await aide.getByRole('button', { name: "J'ai compris" }).click()
+  verif('après les explications, le bouton quitte l’en-tête', (await bouton.count()) === 0)
+  await page.locator('nav.fixed').getByRole('link', { name: 'Compte' }).click(); await page.waitForURL('**/mon-compte')
+  await page.getByRole('button', { name: 'Installer sur cet appareil' }).waitFor({ timeout: 5000 }).catch(() => {})
+  await page.screenshot({ path: `${CAP}/mob-compte-installer.png`, fullPage: true })
+  verif('installation toujours possible depuis « Mon compte »', await page.getByRole('button', { name: 'Installer sur cet appareil' }).isVisible())
   await ctx.close()
+}
+
+// ---------- Ordinateur sans installation directe : pas de bouton dans l'en-tête ----------
+{
+  const { ctx, page } = await ouvrir(db, BUREAU)
+  await connecter(page, 'lea@x.fr'); await page.waitForURL('**/mon-planning')
+  await page.locator('.fc-event').first().waitFor()
+  verif('ordinateur : pas de bouton Installer dans l’en-tête', (await page.locator('header').getByRole('button', { name: 'Installer' }).count()) === 0)
 }
 
 // ---------- Employé : demander un congé ----------

@@ -9,7 +9,8 @@ Site de gestion des plannings des employés (React + TypeScript + Vite + Tailwin
   coupures, services de nuit, notes), filtres par équipe et par employé, export PDF. Vue « par employé »
   sur une semaine ou un mois, avec sa semaine type à appliquer en un clic et ses heures comparées au contrat.
   Réponse aux demandes de congé, gestion des comptes et des équipes.
-- **PWA** : installable sur téléphone et ordinateur.
+- **PWA** : installable sur téléphone et ordinateur (bouton discret, toujours disponible dans « Mon compte »),
+  message « Nouvelle version disponible » lors des mises à jour, et dernier planning consultable sans réseau.
 
 ## Démarrer en local
 1. Copier `.env.example` en `.env` et remplir l'URL et la clé publique de Supabase.

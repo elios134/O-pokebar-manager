@@ -23,3 +23,14 @@ grant usage on schema auth to anon, authenticated;
 grant usage on schema public to anon, authenticated, service_role;
 alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
 alter default privileges in schema public grant all on functions to anon, authenticated, service_role;
+
+-- Imitations du coffre (Vault) et des appels réseau (pg_net) : on note les appels au lieu de les faire.
+create schema vault;
+create table vault.decrypted_secrets (name text primary key, decrypted_secret text);
+create schema net;
+create table net.appels (url text, headers jsonb, body jsonb);
+create function net.http_post(url text, body jsonb default '{}', params jsonb default '{}', headers jsonb default '{}', timeout_milliseconds integer default 5000)
+returns bigint language sql as $$
+  insert into net.appels values (url, headers, body);
+  select 1::bigint;
+$$;
