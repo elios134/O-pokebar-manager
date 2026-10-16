@@ -26,15 +26,16 @@ const heure = (iso) => { const d = new Date(iso); return `${d.getHours()}:${Stri
 const caseDe = (page, nom, n) => page.getByRole('button', { name: new RegExp(`^${nom}, ${JOURS[n]} `) })
 
 const db = creerBase()
+db.conges.push({ id: 'c3', employe_id: 'A', debut: jl(3), fin: jl(3), motif: null, statut: 'en_attente', reponse: null, cree_le: jour(0).toISOString(), traite_le: null })
 db.conges.push({ id: 'c2', employe_id: 'K', debut: jl(4), fin: jl(4), motif: null, statut: 'accepte', reponse: null, cree_le: jour(0).toISOString(), traite_le: null })
 
 // ---------- Ordinateur ----------
 {
   const { ctx, page } = await ouvrir(db, BUREAU)
   await connecter(page, 'admin@x.fr'); await page.waitForURL('**/admin/planning')
-  await page.getByRole('link', { name: 'Grille rapide' }).click(); await page.waitForURL('**/admin/grille')
   await caseDe(page, 'Léa Martin', 0).waitFor({ timeout: 8000 })
-  verif('lien Calendrier / Grille rapide', true)
+  verif('la grille est la page Planning de l’admin', true)
+  verif('demande de congé en attente signalée (pas bloquée)', (await caseDe(page, 'Ana Dupont', 3).getAttribute('aria-label')).includes('demande de congé en attente') && await caseDe(page, 'Ana Dupont', 3).isEnabled())
   const lignes = await page.locator('tbody th[scope="row"]').allInnerTexts()
   verif('une ligne par employé actif (pas Zoé, désactivée)', lignes.length === 3 && !lignes.join().includes('Zoé'))
   verif('regroupé par équipe', (await page.locator('tbody th[scope="colgroup"]').allInnerTexts()).join('|').toLowerCase() === 'salle|sans équipe')
@@ -73,13 +74,35 @@ db.conges.push({ id: 'c2', employe_id: 'K', debut: jl(4), fin: jl(4), motif: nul
   await page.keyboard.press('ArrowRight')
   verif('clavier : flèche droite déplace la case active', await caseDe(page, 'Karim Benali', 2).evaluate((e) => e === document.activeElement))
 
-  // Autre horaire
+  // Heures et note
   await caseDe(page, 'Ana Dupont', 5).click()
-  await page.getByRole('button', { name: 'Autre horaire…' }).first().click()
-  const f = page.getByRole('dialog', { name: 'Autre horaire' })
-  await f.getByLabel('Début').fill('09:00'); await f.getByLabel('Fin').fill('13:30')
+  await page.getByRole('button', { name: 'Heures et note…' }).first().click()
+  const f = page.getByRole('dialog', { name: 'Heures et note' })
+  await f.getByLabel('Début', { exact: true }).fill('09:00'); await f.getByLabel('Fin', { exact: true }).fill('13:30')
   await f.getByRole('button', { name: 'Remplir la case' }).click(); await f.waitFor({ state: 'detached' })
-  verif('autre horaire : 9h–13h30', (await caseDe(page, 'Ana Dupont', 5).innerText()).includes('9h–13h30'))
+  verif('heures libres : 9h–13h30', (await caseDe(page, 'Ana Dupont', 5).innerText()).includes('9h–13h30'))
+  // Service de nuit avec pause après minuit et note
+  await caseDe(page, 'Ana Dupont', 6).click()
+  await page.getByRole('button', { name: 'Heures et note…' }).first().click()
+  await f.getByLabel('Début', { exact: true }).fill('20:00'); await f.getByLabel('Fin', { exact: true }).fill('02:00')
+  await f.getByRole('button', { name: '+ Ajouter une pause' }).click()
+  await f.getByLabel('Début de pause').fill('03:00'); await f.getByLabel('Fin de pause').fill('03:30')
+  verif('pause hors du service : refusée', (await f.innerText()).includes("La pause doit être dans l'horaire.") && await f.getByRole('button', { name: 'Remplir la case' }).isDisabled())
+  await f.getByLabel('Début de pause').fill('00:30'); await f.getByLabel('Fin de pause').fill('01:00')
+  await f.getByLabel('Note (facultatif)').fill('Soirée')
+  await f.getByRole('button', { name: 'Remplir la case' }).click(); await f.waitFor({ state: 'detached' })
+  verif('note : visible dans la description de la case', (await caseDe(page, 'Ana Dupont', 6).getAttribute('aria-label')).includes('« Soirée »'))
+  // Un horaire type posé sur une case garde la note
+  await caseDe(page, 'Ana Dupont', 6).focus(); await page.keyboard.press('s')
+  verif('horaire type : la note est gardée', (await caseDe(page, 'Ana Dupont', 6).getAttribute('aria-label')).includes('« Soirée »'))
+  await caseDe(page, 'Ana Dupont', 6).focus(); await page.keyboard.press('Delete')
+  await caseDe(page, 'Ana Dupont', 6).click()
+  await page.getByRole('button', { name: 'Heures et note…' }).first().click()
+  await f.getByLabel('Début', { exact: true }).fill('20:00'); await f.getByLabel('Fin', { exact: true }).fill('02:00')
+  await f.getByRole('button', { name: '+ Ajouter une pause' }).click()
+  await f.getByLabel('Début de pause').fill('00:30'); await f.getByLabel('Fin de pause').fill('01:00')
+  await f.getByLabel('Note (facultatif)').fill('Soirée')
+  await f.getByRole('button', { name: 'Remplir la case' }).click(); await f.waitFor({ state: 'detached' })
   await page.screenshot({ path: `${CAP}/grille-bureau-avant-enregistrement.png`, fullPage: true })
   await page.getByRole('button', { name: 'Enregistrer', exact: true }).click()
   await page.getByText(/Planning enregistré/).waitFor()
@@ -87,6 +110,15 @@ db.conges.push({ id: 'c2', employe_id: 'K', debut: jl(4), fin: jl(4), motif: nul
   verif('Léa lundi : horaire modifié en Soir, sans pause', (() => { const s = db.shifts.find((x) => x.id === 's1'); return heure(s.debut) === '18:00' && s.pause_debut === null })())
   verif('Karim mardi : horaire supprimé', horairesDu(db, 'K', 1).length === 0)
   verif('Ana samedi : 9:00 – 13:30', horairesDu(db, 'A', 5).map((s) => heure(s.debut) + '-' + heure(s.fin)).join() === '9:00-13:30')
+  const nuit = horairesDu(db, 'A', 6)[0]
+  verif('nuit : 6 h, se termine le lendemain', nuit && new Date(nuit.fin) - new Date(nuit.debut) === 6 * 3600e3)
+  verif('nuit : pause de 30 min après minuit', nuit && nuit.pause_minutes === 30 && new Date(nuit.pause_debut).getDate() !== new Date(nuit.debut).getDate())
+  verif('nuit : note enregistrée', nuit && nuit.note === 'Soirée')
+
+  // Export PDF depuis la grille
+  await page.getByRole('button', { name: 'Exporter en PDF' }).click(); await page.waitForURL('**/impression?*')
+  verif('export PDF : semaine affichée', page.url().includes(`date=${jl(0)}`) && page.url().includes('periode=semaine'))
+  await page.goBack(); await caseDe(page, 'Léa Martin', 0).waitFor()
 
   // Copier la semaine précédente (vers la semaine suivante)
   await page.getByRole('button', { name: 'Semaine suivante' }).click()
@@ -123,7 +155,8 @@ db.conges.push({ id: 'c2', employe_id: 'K', debut: jl(4), fin: jl(4), motif: nul
 {
   const { ctx, page } = await ouvrir(db, TEL)
   await connecter(page, 'admin@x.fr'); await page.waitForURL('**/admin/planning')
-  await page.goto(B + '/admin/grille')
+  await page.goto(B + '/admin/grille'); await page.waitForURL('**/admin/planning')
+  verif('ancienne adresse /admin/grille → Planning', true)
   await caseDe(page, 'Karim Benali', 5).waitFor({ timeout: 8000 })
   await caseDe(page, 'Karim Benali', 5).click(); await caseDe(page, 'Karim Benali', 6).click()
   const feuille = page.locator('div.fixed', { hasText: 'cases choisies' })

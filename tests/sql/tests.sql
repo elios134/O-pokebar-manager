@@ -113,8 +113,8 @@ select test.refuse($$insert into public.conges (employe_id, debut, fin, statut)
   values ('00000000-0000-0000-0000-000000000001', current_date + 20, current_date + 21, 'accepte')$$, 'un employé ne s''accorde pas un congé');
 select test.refuse($$update public.conges set statut = 'accepte'$$, 'un employé ne valide pas sa propre demande');
 
--- Échanges d'horaires désactivés
-select test.refuse('select * from public.collegues()', 'les échanges d''horaires ne sont plus utilisables');
+-- Échanges d'horaires retirés
+select test.verifier(to_regclass('public.echanges') is null, 'la table des échanges n''existe plus');
 reset role;
 
 -- ---------- Réponse de l'admin aux congés ----------
@@ -153,7 +153,10 @@ select public.remplir_grille(jsonb_build_array(jsonb_build_object(
     jsonb_build_object('debut', date_trunc('day', now() + interval '1 day') + interval '18 hours',
                        'fin', date_trunc('day', now() + interval '1 day') + interval '22 hours',
                        'pause_debut', date_trunc('day', now() + interval '1 day') + interval '20 hours',
-                       'pause_fin', date_trunc('day', now() + interval '1 day') + interval '20 hours 15 minutes')))));
+                       'pause_fin', date_trunc('day', now() + interval '1 day') + interval '20 hours 15 minutes',
+                       'note', ' Inventaire ')))));
+select test.verifier((select count(*) = 1 from public.shifts where employe_id = '00000000-0000-0000-0000-000000000002' and note = 'Inventaire'),
+  'la grille enregistre la note d''un horaire');
 select test.verifier((select count(*) = 2 and sum(pause_minutes) = 15 from public.shifts
   where employe_id = '00000000-0000-0000-0000-000000000002'), 'la grille remplace un horaire par une coupure');
 select test.refuse($$select public.remplir_grille(jsonb_build_array(jsonb_build_object(

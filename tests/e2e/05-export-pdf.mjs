@@ -20,7 +20,7 @@ async function connecter(page, email) {
 {
   const { ctx, page } = await ouvrir({ width: 1280, height: 900 })
   await connecter(page, 'admin@x.fr'); await page.waitForURL('**/admin/planning')
-  await page.locator('.fc-event').first().waitFor()
+  await page.getByRole('button', { name: /^Léa Martin, lundi/ }).waitFor()
   await page.getByRole('button', { name: 'Exporter en PDF' }).click(); await page.waitForURL('**/impression?*')
   await page.locator('tbody tr').first().waitFor()
   const texte = await page.locator('table').innerText()

@@ -4,7 +4,15 @@ import BlocPause, { petitChamp } from '../BlocPause'
 const NOUVEAU_SOIR: Creneau = { debut: '18:00', fin: '22:00', pauseDebut: '', pauseFin: '' }
 
 /** Saisie d'un ou deux créneaux (deux = coupure), chacun avec une pause facultative. */
-export default function EditeurCreneaux({ valeur, onChange }: { valeur: Creneau[]; onChange: (c: Creneau[]) => void }) {
+export default function EditeurCreneaux({
+  valeur,
+  onChange,
+  avecNote = false,
+}: {
+  valeur: Creneau[]
+  onChange: (c: Creneau[]) => void
+  avecNote?: boolean
+}) {
   const modifier = (i: number, champs: Partial<Creneau>) => onChange(valeur.map((c, j) => (j === i ? { ...c, ...champs } : c)))
 
   return (
@@ -22,6 +30,19 @@ export default function EditeurCreneaux({ valeur, onChange }: { valeur: Creneau[
               <input type="time" required value={c.fin} onChange={(e) => modifier(i, { fin: e.target.value })} className={petitChamp} />
             </label>
             <BlocPause ligne={c} onChange={(champs) => modifier(i, champs)} />
+            {avecNote && (
+              <label className="col-span-2 flex flex-col gap-1 text-xs font-semibold">
+                Note (facultatif)
+                <input
+                  type="text"
+                  maxLength={200}
+                  placeholder="Ex. : inventaire"
+                  value={c.note ?? ''}
+                  onChange={(e) => modifier(i, { note: e.target.value })}
+                  className={petitChamp}
+                />
+              </label>
+            )}
           </div>
           {i > 0 && (
             <button
@@ -37,7 +58,7 @@ export default function EditeurCreneaux({ valeur, onChange }: { valeur: Creneau[
       {valeur.length === 1 && (
         <button
           type="button"
-          onClick={() => onChange([...valeur, NOUVEAU_SOIR])}
+          onClick={() => onChange([...valeur, avecNote ? { ...NOUVEAU_SOIR, note: '' } : NOUVEAU_SOIR])}
           className="h-11 rounded-lg border border-dashed border-[#9AA0AC] bg-white text-sm font-semibold text-marque-fonce hover:bg-marque-doux"
         >
           + Ajouter un 2e créneau (coupure)

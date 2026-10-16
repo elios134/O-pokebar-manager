@@ -115,57 +115,20 @@ const db = creerBase()
   await page.getByRole('tab', { name: 'Traitées' }).click()
   verif('onglet traitées : 2 demandes', (await page.locator('main > ul > li').count()) === 2)
 
-  // ---------- Admin : planning par équipe + congé affiché ----------
+  // ---------- Admin : planning par équipe puis par employé ----------
   await page.locator('header nav').getByRole('link', { name: 'Planning' }).click(); await page.waitForURL('**/admin/planning')
-  await page.locator('.fc-event').first().waitFor()
-  await page.getByLabel('Équipe', { exact: true }).selectOption({ label: 'Cuisine' }); await page.waitForTimeout(500)
-  const textes = await page.locator('.fc-event').allInnerTexts()
-  verif('planning filtré par équipe : seulement Karim', textes.length > 0 && textes.every((t) => t.includes('Karim')))
+  const lignesGrille = () => page.locator('tbody th[scope="row"]').allInnerTexts()
+  await page.locator('tbody th[scope="row"]').first().waitFor()
+  await page.getByLabel('Équipe', { exact: true }).selectOption({ label: 'Cuisine' })
+  const noms = await lignesGrille()
+  verif('planning filtré par équipe : Karim et Tom', noms.length === 2 && noms.some((n) => n.includes('Karim')) && noms.some((n) => n.includes('Tom')))
   const choix = await page.getByLabel('Employé', { exact: true }).locator('option').allInnerTexts()
   verif('sous-filtre : seulement les employés de l’équipe (+ Tous)', choix.length === 3 && choix[0] === 'Tous les employés' && choix.some((t) => t.includes('Karim')) && choix.some((t) => t.includes('Tom')) && !choix.some((t) => t.includes('Léa')))
-  await page.getByLabel('Employé', { exact: true }).selectOption({ label: 'Tom Lefèvre' }); await page.waitForTimeout(400)
-  verif('équipe + employé sans horaire : calendrier vide', (await page.locator('.fc-timegrid-event').count()) === 0)
-  await page.getByLabel('Équipe', { exact: true }).selectOption({ label: 'Toutes les équipes' }); await page.waitForTimeout(400)
+  await page.getByLabel('Employé', { exact: true }).selectOption({ label: 'Tom Lefèvre' })
+  verif('équipe + employé : une seule ligne', (await lignesGrille()).length === 1)
+  await page.getByLabel('Équipe', { exact: true }).selectOption({ label: 'Toutes les équipes' })
   verif('changer d’équipe remet « Tous les employés »', (await page.getByLabel('Employé', { exact: true }).inputValue()) === '')
   await page.screenshot({ path: `${CAP}/web-filtres-planning.png` })
-
-  // ---------- Admin : planifier plusieurs jours ----------
-  await page.getByRole('button', { name: 'Planifier plusieurs jours' }).click()
-  const p = page.getByRole('dialog', { name: 'Planifier plusieurs jours' })
-  await p.getByLabel('Employé').selectOption({ label: 'Léa Martin' })
-  // mois suivant, jours 3, 4, 5
-  await p.getByRole('button', { name: 'Mois suivant' }).click()
-  const d = new Date(); const m = new Date(d.getFullYear(), d.getMonth() + 1, 1)
-  const j = (n) => `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, '0')}-${String(n).padStart(2, '0')}`
-  // Sans pause du tout : on doit pouvoir créer directement
-  for (const n of [3, 4, 5]) await p.getByRole('button', { name: j(n), exact: true }).click()
-  verif('3 jours choisis', (await p.locator('ul > li').count()) === 3)
-  verif('sans pause : aucun champ de pause affiché', (await p.getByLabel('Début de pause').count()) === 0)
-  verif('sans pause : bouton Créer actif', await p.getByRole('button', { name: /Créer 3 horaires/ }).isEnabled())
-  // Pause ajoutée seulement sur le jour 1 et le jour 2
-  const jour1 = p.locator('ul > li').nth(0), jour2 = p.locator('ul > li').nth(1), jour3 = p.locator('ul > li').nth(2)
-  await jour1.getByRole('button', { name: '+ Ajouter une pause' }).click()
-  verif('pause proposée au milieu de 9h–17h (13:00)', (await jour1.getByLabel('Début de pause').inputValue()) === '13:00')
-  await jour1.getByLabel('Début de pause').fill('12:00'); await jour1.getByLabel('Fin de pause').fill('12:30')
-  await jour2.getByLabel('Début', { exact: true }).fill('14:00'); await jour2.getByLabel('Fin', { exact: true }).fill('22:00')
-  await jour2.getByRole('button', { name: '+ Ajouter une pause' }).click()
-  await jour2.getByLabel('Début de pause').fill('12:00')
-  verif('jour 2 : pause hors horaire signalée', (await jour2.innerText()).includes("La pause doit être dans l'horaire."))
-  verif('bouton créer bloqué tant qu’il y a une erreur', await p.getByRole('button', { name: /Créer 3 horaires/ }).isDisabled())
-  await jour2.getByLabel('Début de pause').fill('18:00'); await jour2.getByLabel('Fin de pause').fill('18:45')
-  // le jour 3 : on ajoute une pause puis on la retire
-  await jour3.getByRole('button', { name: '+ Ajouter une pause' }).click()
-  await jour3.getByRole('button', { name: 'Retirer la pause' }).click()
-  verif('pause retirée : plus de champs sur le jour 3', (await jour3.getByLabel('Début de pause').count()) === 0)
-  verif('total affiché : 7 h 30 + 7 h 15 + 8 h = 22 h 45', (await p.innerText()).includes('Total : 22 h 45'))
-  await page.screenshot({ path: `${CAP}/web-planifier.png`, fullPage: true })
-  const avant = db.shifts.length
-  await p.getByRole('button', { name: /Créer 3 horaires/ }).click(); await p.waitFor({ state: 'detached' })
-  const crees = db.shifts.slice(avant)
-  verif('3 horaires créés', crees.length === 3 && crees.every((s) => s.employe_id === 'L'))
-  const h2 = crees.find((s) => new Date(s.debut).getHours() === 14)
-  verif('jour 2 : 14:00–22:00 avec pause 45 min', h2 && new Date(h2.fin).getHours() === 22 && h2.pause_minutes === 45)
-  verif('jour 3 : sans pause', crees.filter((s) => s.pause_minutes === 0).length === 1)
   await ctx.close()
 }
 

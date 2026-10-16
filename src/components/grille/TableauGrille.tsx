@@ -10,6 +10,7 @@ export interface CaseGrille {
   modele?: ModeleHoraire
   conge: boolean
   modifiee: boolean
+  congeDemande: boolean
   choisie: boolean
 }
 
@@ -167,7 +168,7 @@ export default function TableauGrille({
                             aria-pressed={c.choisie}
                             aria-label={`${l.nom}, ${fmtJourLong.format(dateDuJour(c.jour))} : ${
                               c.conge ? 'en congé' : c.creneaux.length ? `${c.modele ? `${c.modele.nom}, ` : ''}${texteDetaille(c.creneaux)}` : 'vide'
-                            }`}
+                            }${c.congeDemande ? ' (demande de congé en attente)' : ''}`}
                             title={c.creneaux.length ? texteDetaille(c.creneaux) : undefined}
                             onClick={() => onClic(c)}
                             onPointerDown={(e) => e.pointerType === 'mouse' && e.button === 0 && onAppui(c)}
@@ -180,6 +181,14 @@ export default function TableauGrille({
                               {t.haut}
                             </span>
                             {t.bas && <span className="max-w-full truncate text-[10px] font-semibold sm:text-[11px]">{t.bas}</span>}
+                            {c.congeDemande && (
+                              <span className="absolute top-1 left-1 size-2 rounded-full bg-[#D9822B]" title="Demande de congé en attente" />
+                            )}
+                            {c.creneaux.some((x) => x.note) && (
+                              <svg aria-hidden="true" className="absolute bottom-1 left-1" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M4 6h16M4 12h16M4 18h10" />
+                              </svg>
+                            )}
                             {c.modifiee && (
                               <span className="absolute top-1 right-1 size-2 rounded-full bg-marque" title="Pas encore enregistré" />
                             )}

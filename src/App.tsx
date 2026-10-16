@@ -1,9 +1,8 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthContext'
 import { Protege, RedirectionAccueil } from './auth/Protection'
 import AdminConges from './pages/AdminConges'
 import AdminEmployes from './pages/AdminEmployes'
-import AdminGrille from './pages/AdminGrille'
 import AdminPlanning from './pages/AdminPlanning'
 import Connexion from './pages/Connexion'
 import Impression from './pages/Impression'
@@ -27,7 +26,7 @@ function App() {
           <Route path="/impression" element={<Protege><Impression /></Protege>} />
           <Route path="/admin/conges" element={<Protege admin><AdminConges /></Protege>} />
           <Route path="/admin/planning" element={<Protege admin><AdminPlanning /></Protege>} />
-          <Route path="/admin/grille" element={<Protege admin><AdminGrille /></Protege>} />
+          <Route path="/admin/grille" element={<Navigate to="/admin/planning" replace />} />
           <Route path="/admin/employes" element={<Protege admin><AdminEmployes /></Protege>} />
           <Route path="*" element={<RedirectionAccueil />} />
         </Routes>

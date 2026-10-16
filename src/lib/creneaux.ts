@@ -1,12 +1,14 @@
 import { construirePlage, dureeHeures, heureDansService, heureLocale, jourLocal } from './dates'
 import type { Horaire } from './types'
 
-/** Un créneau saisi en heures ("HH:MM") ; pause facultative ("" = pas de pause). */
+/** Un créneau saisi en heures ("HH:MM") ; pause facultative ("" = pas de pause).
+ *  Note absente (horaire type) = on garde la note déjà en place dans la case. */
 export interface Creneau {
   debut: string
   fin: string
   pauseDebut: string
   pauseFin: string
+  note?: string
 }
 
 /** Horaire type de la grille rapide (ex. « O · Ouverture 10:00 – 15:00 »). */
@@ -45,7 +47,7 @@ export function normaliserCreneaux(brut: unknown): Creneau[] {
 }
 
 /** Calcule un créneau pour un jour ; renvoie une erreur lisible si les heures ne vont pas. */
-export function calculer(jour: string, l: Creneau) {
+function calculer(jour: string, l: Creneau) {
   if (!l.debut || !l.fin) return { erreur: 'Heures manquantes.' }
   const plage = construirePlage(jour, l.debut, l.fin)
   let pause: { debut: Date; fin: Date } | null = null
@@ -86,6 +88,7 @@ export function depuisHoraire(h: Horaire): Creneau {
     fin: heureLocale(new Date(h.fin)),
     pauseDebut: h.pause_debut ? heureLocale(new Date(h.pause_debut)) : '',
     pauseFin: h.pause_fin ? heureLocale(new Date(h.pause_fin)) : '',
+    note: h.note ?? '',
   }
 }
 
@@ -98,12 +101,22 @@ export function versHoraire(jour: string, c: Creneau) {
     fin: r.plage!.fin.toISOString(),
     pause_debut: r.pause ? r.pause.debut.toISOString() : null,
     pause_fin: r.pause ? r.pause.fin.toISOString() : null,
+    note: c.note ?? '',
   }
 }
 
-export const memesCreneaux = (a: Creneau[], b: Creneau[]) =>
+/** Mêmes heures (sans regarder les notes) : sert à reconnaître un horaire type. */
+export const memesHeures = (a: Creneau[], b: Creneau[]) =>
   a.length === b.length &&
   a.every((x, i) => x.debut === b[i].debut && x.fin === b[i].fin && x.pauseDebut === b[i].pauseDebut && x.pauseFin === b[i].pauseFin)
+
+/** Mêmes heures et mêmes notes. */
+export const memesCreneaux = (a: Creneau[], b: Creneau[]) =>
+  memesHeures(a, b) && a.every((x, i) => (x.note ?? '') === (b[i].note ?? ''))
+
+/** Applique de nouveaux créneaux à une case : une note absente reprend celle déjà en place. */
+export const garderNotes = (nouveaux: Creneau[], actuels: Creneau[]) =>
+  nouveaux.map((c, i) => ({ ...c, note: c.note ?? actuels[i]?.note ?? '' }))
 
 /** "10h", "11h30" */
 export function heureCourte(h: string) {
@@ -120,7 +133,7 @@ export function texteCreneaux(creneaux: Creneau[]) {
 /** "10:00 – 18:00 · pause 14:00 – 14:30" pour une infobulle ou une description. */
 export function texteDetaille(creneaux: Creneau[]) {
   return creneaux
-    .map((c) => `${c.debut} – ${c.fin}${c.pauseDebut ? ` · pause ${c.pauseDebut} – ${c.pauseFin}` : ''}`)
+    .map((c) => `${c.debut} – ${c.fin}${c.pauseDebut ? ` · pause ${c.pauseDebut} – ${c.pauseFin}` : ''}${c.note ? ` · « ${c.note} »` : ''}`)
     .join(' et ')
 }
 

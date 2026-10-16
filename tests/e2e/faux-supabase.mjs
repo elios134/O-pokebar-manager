@@ -159,10 +159,6 @@ export async function brancher(page, db) {
       const moi = db.profiles.find((p) => p.id === uid)
       const admin = moi?.role === 'admin' && moi.actif
       const err = (message) => route.fulfill({ status: 400, json: { code: 'P0001', message } })
-      db.echanges ??= []
-      const nomDe = (id) => { const p = db.profiles.find((x) => x.id === id); return `${p.prenom} ${p.nom}` }
-      const sh = (id) => db.shifts.find((x) => x.id === id)
-      const futur = (s) => s && new Date(s.debut) > new Date()
       if (nom === 'remplir_grille') {
         if (!admin) return route.fulfill({ status: 403, json: { code: '42501', message: 'Réservé aux administrateurs.' } })
         // Tout ou rien : on travaille sur une copie.
@@ -171,7 +167,8 @@ export async function brancher(page, db) {
           const de = new Date(c.de), fin = new Date(c.a)
           const anciens = copie.filter((s) => s.employe_id === c.employe_id && new Date(s.debut) >= de && new Date(s.debut) < fin)
             .sort((x, y) => new Date(x.debut) - new Date(y.debut))
-          c.horaires.forEach((h, i) => {
+          c.horaires.forEach((h0, i) => {
+            const h = { ...h0, note: h0.note?.trim() || null }
             if (i < anciens.length) Object.assign(anciens[i], h)
             else copie.push({ id: crypto.randomUUID(), employe_id: c.employe_id, note: null, cree_le: new Date().toISOString(), ...h })
             n++
@@ -185,29 +182,6 @@ export async function brancher(page, db) {
         }
         db.shifts = copie; db.appelsGrille = [...(db.appelsGrille ?? []), a.p_cases]
         return route.fulfill({ json: n })
-      }
-      if (nom === 'collegues') return route.fulfill({ json: db.profiles.filter((p) => p.actif && p.id !== uid).map(({ id, prenom, nom }) => ({ id, prenom, nom })) })
-      if (nom === 'horaires_collegue') return route.fulfill({ json: db.shifts.filter((x) => x.employe_id === a.p_collegue && futur(x)).map(({ id, debut, fin }) => ({ id, debut, fin })) })
-      if (nom === 'mes_echanges') return route.fulfill({ json: db.echanges.filter((e) => admin || e.demandeur_id === uid || e.destinataire_id === uid).map((e) => ({
-        ...e, demandeur: nomDe(e.demandeur_id), destinataire: nomDe(e.destinataire_id),
-        debut_demandeur: sh(e.horaire_demandeur_id).debut, fin_demandeur: sh(e.horaire_demandeur_id).fin,
-        debut_destinataire: e.horaire_destinataire_id ? sh(e.horaire_destinataire_id).debut : null,
-        fin_destinataire: e.horaire_destinataire_id ? sh(e.horaire_destinataire_id).fin : null })) })
-      if (nom === 'proposer_echange') {
-        const h = sh(a.p_horaire); if (!h || h.employe_id !== uid || !futur(h)) return err('Cet horaire ne vous appartient pas ou est déjà passé.')
-        if (db.echanges.some((e) => ['attente_collegue', 'attente_admin'].includes(e.statut) && [e.horaire_demandeur_id, e.horaire_destinataire_id].includes(a.p_horaire))) return err('Un échange est déjà en cours pour cet horaire.')
-        const id = crypto.randomUUID()
-        db.echanges.push({ id, demandeur_id: uid, horaire_demandeur_id: a.p_horaire, destinataire_id: a.p_collegue, horaire_destinataire_id: a.p_horaire_collegue ?? null, message: a.p_message || null, statut: 'attente_collegue', cree_le: new Date().toISOString() })
-        return route.fulfill({ json: id })
-      }
-      const e = db.echanges.find((x) => x.id === a.p_id)
-      if (nom === 'repondre_echange') { if (!e || e.destinataire_id !== uid || e.statut !== 'attente_collegue') return err('Échange introuvable ou déjà traité.'); e.statut = a.p_accepte ? 'attente_admin' : 'refuse_collegue'; return route.fulfill({ status: 204, body: '' }) }
-      if (nom === 'annuler_echange') { if (!e || e.demandeur_id !== uid) return err('Échange introuvable ou déjà traité.'); e.statut = 'annule'; return route.fulfill({ status: 204, body: '' }) }
-      if (nom === 'valider_echange') {
-        if (!admin) return err('Réservé aux administrateurs.')
-        if (!e || e.statut !== 'attente_admin') return err('Échange introuvable ou déjà traité.')
-        if (a.p_accepte) { sh(e.horaire_demandeur_id).employe_id = e.destinataire_id; if (e.horaire_destinataire_id) sh(e.horaire_destinataire_id).employe_id = e.demandeur_id; e.statut = 'accepte' } else e.statut = 'refuse'
-        return route.fulfill({ status: 204, body: '' })
       }
       console.log('RPC NON SIMULÉE', nom); return route.fulfill({ status: 404, json: {} })
     }
