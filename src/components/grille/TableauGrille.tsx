@@ -1,18 +1,8 @@
-import { Fragment, useRef, useState, type KeyboardEvent } from 'react'
+import { Fragment, useState } from 'react'
 import type { Couleur } from '../../lib/couleurs'
-import { COULEURS_MODELES, heureCourte, texteCreneaux, texteDetaille, type Creneau, type ModeleHoraire } from '../../lib/creneaux'
-import { dateDuJour, formatHeures, jourLocal } from '../../lib/dates'
-
-export interface CaseGrille {
-  cle: string
-  jour: string
-  creneaux: Creneau[]
-  modele?: ModeleHoraire
-  conge: boolean
-  modifiee: boolean
-  congeDemande: boolean
-  choisie: boolean
-}
+import { texteHeures } from '../../lib/creneaux'
+import { dateDuJour, jourLocal } from '../../lib/dates'
+import Cellule, { type ActionsCase, type CaseGrille } from './Cellule'
 
 export interface LigneGrille {
   id: string
@@ -20,34 +10,13 @@ export interface LigneGrille {
   initiales: string
   couleur: Couleur
   total: number
+  contrat: number | null
   cases: CaseGrille[]
 }
 
 const fmtJourCourt = new Intl.DateTimeFormat('fr-FR', { weekday: 'short' })
-const fmtJourLong = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
-const SEUIL_HEURES = 35
-const heures = (h: number) => (h > 0 ? formatHeures(h) : '0 h')
-
-function contenu(c: CaseGrille) {
-  if (c.conge) return { haut: 'Congé', bas: '' }
-  if (c.modele) return { haut: c.modele.code, bas: texteCreneaux(c.creneaux) }
-  if (!c.creneaux.length) return { haut: '+', bas: '' }
-  const [a, b] = c.creneaux
-  return { haut: `${heureCourte(a.debut)}–${heureCourte(a.fin)}`, bas: b ? `${heureCourte(b.debut)}–${heureCourte(b.fin)}` : '' }
-}
-
-function style(c: CaseGrille) {
-  if (c.choisie) return { background: '#FFF4F2', color: '#9A3129', borderColor: '#C2453B', boxShadow: '0 0 0 2px #C2453B' }
-  if (c.conge) {
-    return { background: 'repeating-linear-gradient(135deg, #EEF0F3 0 6px, #F6F7F9 6px 12px)', color: '#4A5060', borderColor: '#E3E5EA' }
-  }
-  if (c.modele) {
-    const m = COULEURS_MODELES[c.modele.couleur] ?? COULEURS_MODELES[0]
-    return { background: m.fond, color: m.texte, borderColor: m.lisere }
-  }
-  if (c.creneaux.length) return { background: '#F4F5F7', color: '#16181D', borderColor: '#C9CCD4' }
-  return { background: '#FFFFFF', color: '#9AA0AC', borderColor: '#EEF0F3' }
-}
+const SEUIL_PAR_DEFAUT = 35
+const depasse = (l: LigneGrille) => l.total > (l.contrat ?? SEUIL_PAR_DEFAUT)
 
 /** Le tableau : une ligne par employé, une colonne par jour, comme un tableur. */
 export default function TableauGrille({
@@ -55,43 +24,22 @@ export default function TableauGrille({
   groupes,
   pied,
   totalSemaine,
-  onClic,
-  onAppui,
-  onGlisser,
-  onTouche,
+  actions,
+  onEmploye,
 }: {
   jours: string[]
   groupes: { nom: string; lignes: LigneGrille[] }[]
   pied: { presents: number; heures: number }[]
   totalSemaine: number
-  onClic: (c: CaseGrille) => void
-  onAppui: (c: CaseGrille) => void
-  onGlisser: (c: CaseGrille) => void
-  onTouche: (c: CaseGrille, touche: string) => boolean
+  actions: ActionsCase
+  onEmploye: (id: string) => void
 }) {
-  const tableau = useRef<HTMLTableElement>(null)
   const [aujourdhui] = useState(() => jourLocal(new Date()))
   let index = 0
 
-  function clavier(e: KeyboardEvent<HTMLButtonElement>, c: CaseGrille, ligne: number, colonne: number) {
-    const depl: Record<string, [number, number]> = {
-      ArrowUp: [-1, 0],
-      ArrowDown: [1, 0],
-      ArrowLeft: [0, -1],
-      ArrowRight: [0, 1],
-    }
-    const d = depl[e.key]
-    if (d) {
-      e.preventDefault()
-      tableau.current?.querySelector<HTMLButtonElement>(`[data-l="${ligne + d[0]}"][data-c="${colonne + d[1]}"]`)?.focus()
-      return
-    }
-    if (!e.ctrlKey && !e.metaKey && !e.altKey && onTouche(c, e.key)) e.preventDefault()
-  }
-
   return (
     <div className="max-h-[68dvh] overflow-auto rounded-2xl border border-ligne bg-white">
-      <table ref={tableau} className="w-full min-w-[640px] table-fixed border-separate border-spacing-0 text-sm">
+      <table className="w-full min-w-[640px] table-fixed border-separate border-spacing-0 text-sm">
         <thead>
           <tr>
             <th className="sticky top-0 left-0 z-20 w-[104px] border-b border-ligne bg-[#F8F9FB] px-3 py-2 text-left text-xs font-bold text-gris sm:w-[200px] sm:px-4">
@@ -148,62 +96,32 @@ export default function TableauGrille({
                         >
                           {l.initiales}
                         </span>
-                        <span className="min-w-0">
+                        <button
+                          type="button"
+                          onClick={() => onEmploye(l.id)}
+                          title={`Voir le planning de ${l.nom} au mois`}
+                          className="min-w-0 rounded-md text-left hover:text-marque-fonce hover:underline"
+                        >
                           <span className="block truncate font-bold">{l.nom}</span>
-                          <span className={`block text-xs font-bold sm:hidden ${l.total > SEUIL_HEURES ? 'text-marque-fonce' : 'text-gris'}`}>
-                            {heures(l.total)}
+                          <span className={`block text-xs font-bold sm:hidden ${depasse(l) ? 'text-marque-fonce' : 'text-gris'}`}>
+                            {texteHeures(l.total)}
                           </span>
-                        </span>
+                        </button>
                       </span>
                     </th>
-                    {l.cases.map((c, colonne) => {
-                      const t = contenu(c)
-                      return (
-                        <td key={c.cle} className="border-b border-l border-[#EEF0F3] p-1">
-                          <button
-                            type="button"
-                            data-l={ligne}
-                            data-c={colonne}
-                            disabled={c.conge}
-                            aria-pressed={c.choisie}
-                            aria-label={`${l.nom}, ${fmtJourLong.format(dateDuJour(c.jour))} : ${
-                              c.conge ? 'en congé' : c.creneaux.length ? `${c.modele ? `${c.modele.nom}, ` : ''}${texteDetaille(c.creneaux)}` : 'vide'
-                            }${c.congeDemande ? ' (demande de congé en attente)' : ''}`}
-                            title={c.creneaux.length ? texteDetaille(c.creneaux) : undefined}
-                            onClick={() => onClic(c)}
-                            onPointerDown={(e) => e.pointerType === 'mouse' && e.button === 0 && onAppui(c)}
-                            onPointerEnter={(e) => e.pointerType === 'mouse' && e.buttons === 1 && onGlisser(c)}
-                            onKeyDown={(e) => clavier(e, c, ligne, colonne)}
-                            className="relative flex h-[54px] w-full flex-col items-center justify-center gap-px rounded-[9px] border px-0.5 leading-tight select-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-encre disabled:cursor-not-allowed"
-                            style={style(c)}
-                          >
-                            <span className={`font-extrabold ${c.modele || c.conge || !c.creneaux.length ? 'text-[15px]' : 'text-[12px]'}`}>
-                              {t.haut}
-                            </span>
-                            {t.bas && <span className="max-w-full truncate text-[10px] font-semibold sm:text-[11px]">{t.bas}</span>}
-                            {c.congeDemande && (
-                              <span className="absolute top-1 left-1 size-2 rounded-full bg-[#D9822B]" title="Demande de congé en attente" />
-                            )}
-                            {c.creneaux.some((x) => x.note) && (
-                              <svg aria-hidden="true" className="absolute bottom-1 left-1" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M4 6h16M4 12h16M4 18h10" />
-                              </svg>
-                            )}
-                            {c.modifiee && (
-                              <span className="absolute top-1 right-1 size-2 rounded-full bg-marque" title="Pas encore enregistré" />
-                            )}
-                          </button>
-                        </td>
-                      )
-                    })}
+                    {l.cases.map((c, colonne) => (
+                      <td key={c.cle} className="border-b border-l border-[#EEF0F3] p-1">
+                        <Cellule c={c} nom={l.nom} ligne={ligne} colonne={colonne} actions={actions} />
+                      </td>
+                    ))}
                     <td className="border-b border-l border-[#EEF0F3] px-1 text-center">
                       <span
-                        title={l.total > SEUIL_HEURES ? `Plus de ${SEUIL_HEURES} h cette semaine` : undefined}
+                        title={depasse(l) ? `Plus de ${l.contrat ?? SEUIL_PAR_DEFAUT} h cette semaine` : undefined}
                         className={`inline-block rounded-full px-2 py-1 text-xs font-extrabold whitespace-nowrap ${
-                          l.total > SEUIL_HEURES ? 'bg-marque-doux text-marque-fonce' : 'bg-fond text-encre'
+                          depasse(l) ? 'bg-marque-doux text-marque-fonce' : 'bg-fond text-encre'
                         }`}
                       >
-                        {heures(l.total)}
+                        {texteHeures(l.total)}
                       </span>
                     </td>
                   </tr>
@@ -220,11 +138,11 @@ export default function TableauGrille({
             {pied.map((p, i) => (
               <td key={i} className="border-l border-[#EEF0F3] bg-[#F8F9FB] px-1 py-1.5 text-center text-xs">
                 <span className="block font-extrabold text-encre">{p.presents} pers.</span>
-                <span className="block text-gris">{heures(p.heures)}</span>
+                <span className="block text-gris">{texteHeures(p.heures)}</span>
               </td>
             ))}
             <td className="border-l border-[#EEF0F3] bg-[#F8F9FB] px-1 text-center text-xs font-extrabold">
-              {heures(totalSemaine)}
+              {texteHeures(totalSemaine)}
             </td>
           </tr>
         </tfoot>

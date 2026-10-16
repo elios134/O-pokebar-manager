@@ -91,3 +91,11 @@ export function lienImpression(
   if (options.employe) p.set('employe', options.employe)
   return `/impression?${p.toString()}`
 }
+
+/** Numéro de semaine (norme ISO, utilisée en France) */
+export function numeroSemaine(d: Date) {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+  t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7))
+  const debutAnnee = new Date(Date.UTC(t.getUTCFullYear(), 0, 1))
+  return Math.ceil(((t.getTime() - debutAnnee.getTime()) / 86_400_000 + 1) / 7)
+}

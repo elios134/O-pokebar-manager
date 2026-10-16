@@ -1,4 +1,4 @@
-import { construirePlage, dureeHeures, heureDansService, heureLocale, jourLocal } from './dates'
+import { construirePlage, dateDuJour, dureeHeures, formatHeures, heureDansService, heureLocale, jourLocal } from './dates'
 import type { Horaire } from './types'
 
 /** Un créneau saisi en heures ("HH:MM") ; pause facultative ("" = pas de pause).
@@ -137,11 +137,22 @@ export function texteDetaille(creneaux: Creneau[]) {
     .join(' et ')
 }
 
-/** Lundi 00:00 → les 7 jours "2026-10-19"… */
-export function joursDeLaSemaine(lundi: Date) {
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(lundi)
+/** Les `n` jours à partir de `premier` : "2026-10-19", "2026-10-20"… */
+export function listeJours(premier: string, n: number) {
+  return Array.from({ length: n }, (_, i) => {
+    const d = dateDuJour(premier)
     d.setDate(d.getDate() + i)
     return jourLocal(d)
   })
+}
+
+/** "7 h 30", et "0 h" plutôt que "0 min" pour un total vide. */
+export const texteHeures = (h: number) => (h > 0 ? formatHeures(h) : '0 h')
+
+/** Semaine type d'un employé : 7 jours (lundi → dimanche), chacun une liste de créneaux. */
+export type SemaineType = Creneau[][]
+
+export function normaliserSemaineType(brut: unknown): SemaineType | null {
+  if (!Array.isArray(brut) || brut.length !== 7) return null
+  return brut.map(normaliserCreneaux)
 }

@@ -8,6 +8,7 @@ export interface Profil {
   actif: boolean
   email: string
   equipe_id: string | null
+  heures_contrat: number | null // heures par semaine prévues au contrat
 }
 
 export interface Equipe {
@@ -40,6 +41,6 @@ export interface Conge {
   traite_le: string | null
 }
 
-export const CHAMPS_PROFIL = 'id, nom, prenom, role, actif, email, equipe_id'
+export const CHAMPS_PROFIL = 'id, nom, prenom, role, actif, email, equipe_id, heures_contrat'
 export const CHAMPS_HORAIRE = 'id, employe_id, debut, fin, note, pause_minutes, pause_debut, pause_fin'
 export const CHAMPS_CONGE = 'id, employe_id, debut, fin, motif, statut, reponse, cree_le, traite_le'

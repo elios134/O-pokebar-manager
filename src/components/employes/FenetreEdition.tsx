@@ -20,6 +20,7 @@ export default function FenetreEdition({
 }) {
   const [prenom, setPrenom] = useState(profil.prenom)
   const [nom, setNom] = useState(profil.nom)
+  const [contrat, setContrat] = useState(profil.heures_contrat == null ? '' : String(profil.heures_contrat))
   const [mdp, setMdp] = useState('')
   const [erreur, setErreur] = useState<string | null>(null)
   const [envoi, setEnvoi] = useState(false)
@@ -41,11 +42,11 @@ export default function FenetreEdition({
     setErreur(null)
     const { error } = await supabase
       .from('profiles')
-      .update({ prenom: prenom.trim(), nom: nom.trim() })
+      .update({ prenom: prenom.trim(), nom: nom.trim(), heures_contrat: contrat ? Number(contrat) : null })
       .eq('id', profil.id)
     setEnvoi(false)
     if (error) return setErreur('Enregistrement impossible.')
-    onFait(`Nom enregistré : ${prenom.trim()} ${nom.trim()}.`)
+    onFait(`Informations enregistrées : ${prenom.trim()} ${nom.trim()}${contrat ? `, contrat ${contrat} h par semaine` : ''}.`)
   }
 
   async function changerMdp(e: FormEvent) {
@@ -72,12 +73,32 @@ export default function FenetreEdition({
             <input required value={nom} maxLength={60} onChange={(e) => setNom(e.target.value)} className={champ} />
           </label>
         </div>
+        <label className={etiquette}>
+          Contrat (heures par semaine)
+          <input
+            type="number"
+            min={1}
+            max={60}
+            step={0.5}
+            inputMode="decimal"
+            placeholder="Ex. : 35"
+            value={contrat}
+            onChange={(e) => setContrat(e.target.value)}
+            className={champ}
+          />
+          <span className="text-xs font-medium text-gris">Sert à comparer les heures planifiées dans le planning. Facultatif.</span>
+        </label>
         <button
           type="submit"
-          disabled={envoi || !prenom.trim() || !nom.trim() || (prenom === profil.prenom && nom === profil.nom)}
+          disabled={
+            envoi ||
+            !prenom.trim() ||
+            !nom.trim() ||
+            (prenom === profil.prenom && nom === profil.nom && contrat === (profil.heures_contrat == null ? '' : String(profil.heures_contrat)))
+          }
           className={boutonPrincipal}
         >
-          Enregistrer le nom
+          Enregistrer
         </button>
       </form>
 

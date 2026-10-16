@@ -186,6 +186,25 @@ select test.refuse($$insert into public.modeles_horaires (nom, code, creneaux) v
 select test.refuse($$select public.remplir_grille('[]'::jsonb)$$, 'un employé ne peut pas utiliser la grille');
 reset role;
 
+-- ---------- Contrat et semaine type ----------
+set role authenticated;
+select test.connecte('00000000-0000-0000-0000-00000000000a');
+update public.profiles set heures_contrat = 35,
+  semaine_type = '[[{"debut":"10:00","fin":"15:00"}],[],[],[],[],[],[]]'
+  where id = '00000000-0000-0000-0000-000000000002';
+select test.verifier((select heures_contrat = 35 and jsonb_array_length(semaine_type) = 7 from public.profiles
+  where id = '00000000-0000-0000-0000-000000000002'), 'l''admin enregistre le contrat et la semaine type');
+select test.refuse($$update public.profiles set semaine_type = '[[]]' where id = '00000000-0000-0000-0000-000000000002'$$,
+  'une semaine type a toujours 7 jours');
+select test.refuse($$update public.profiles set heures_contrat = 90 where id = '00000000-0000-0000-0000-000000000002'$$,
+  'un contrat de plus de 60 h est refusé');
+reset role;
+set role authenticated;
+select test.connecte('00000000-0000-0000-0000-000000000001');
+select test.refuse($$update public.profiles set heures_contrat = 10 where id = '00000000-0000-0000-0000-000000000001'$$,
+  'un employé ne change pas son contrat');
+reset role;
+
 -- ---------- Compte désactivé ----------
 update public.profiles set actif = false where id = '00000000-0000-0000-0000-000000000002';
 set role authenticated;

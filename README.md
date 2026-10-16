@@ -6,8 +6,9 @@ Site de gestion des plannings des employés (React + TypeScript + Vite + Tailwin
   demande des congés et suit la réponse.
 - **Admin** : planning de l'équipe sous forme de grille façon tableur (une ligne par employé, une colonne par
   jour) remplie avec des horaires types (pinceau, sélection, clavier, copie de la semaine précédente, pauses,
-  coupures, services de nuit, notes), filtres par équipe et par employé, export PDF ; réponse aux demandes
-  de congé, gestion des comptes et des équipes.
+  coupures, services de nuit, notes), filtres par équipe et par employé, export PDF. Vue « par employé »
+  sur une semaine ou un mois, avec sa semaine type à appliquer en un clic et ses heures comparées au contrat.
+  Réponse aux demandes de congé, gestion des comptes et des équipes.
 - **PWA** : installable sur téléphone et ordinateur.
 
 ## Démarrer en local
