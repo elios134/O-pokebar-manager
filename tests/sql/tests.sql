@@ -135,6 +135,54 @@ select test.connecte('00000000-0000-0000-0000-000000000001');
 select test.refuse('delete from public.conges', 'un employé ne retire pas un congé déjà accepté');
 reset role;
 
+-- ---------- Grille rapide ----------
+set role authenticated;
+select test.connecte('00000000-0000-0000-0000-00000000000a');
+select test.verifier((select count(*) = 5 from public.modeles_horaires), 'l''admin voit les horaires types de départ');
+select test.refuse($$insert into public.modeles_horaires (nom, code, creneaux) values ('Trop', 'O', '[{"debut":"9:00","fin":"10:00"}]')$$,
+  'deux horaires types ne peuvent pas avoir la même lettre');
+select test.refuse($$insert into public.modeles_horaires (nom, code, creneaux) values ('Vide', 'V', '[]')$$,
+  'un horaire type a au moins un créneau');
+-- Case de Tom demain : son horaire est remplacé par une coupure (2 créneaux).
+select public.remplir_grille(jsonb_build_array(jsonb_build_object(
+  'employe_id', '00000000-0000-0000-0000-000000000002',
+  'de', date_trunc('day', now() + interval '1 day'), 'a', date_trunc('day', now() + interval '2 days'),
+  'horaires', jsonb_build_array(
+    jsonb_build_object('debut', date_trunc('day', now() + interval '1 day') + interval '11 hours',
+                       'fin', date_trunc('day', now() + interval '1 day') + interval '15 hours'),
+    jsonb_build_object('debut', date_trunc('day', now() + interval '1 day') + interval '18 hours',
+                       'fin', date_trunc('day', now() + interval '1 day') + interval '22 hours',
+                       'pause_debut', date_trunc('day', now() + interval '1 day') + interval '20 hours',
+                       'pause_fin', date_trunc('day', now() + interval '1 day') + interval '20 hours 15 minutes')))));
+select test.verifier((select count(*) = 2 and sum(pause_minutes) = 15 from public.shifts
+  where employe_id = '00000000-0000-0000-0000-000000000002'), 'la grille remplace un horaire par une coupure');
+select test.refuse($$select public.remplir_grille(jsonb_build_array(jsonb_build_object(
+  'employe_id', '00000000-0000-0000-0000-000000000002',
+  'de', date_trunc('day', now() + interval '1 day'), 'a', date_trunc('day', now() + interval '2 days'),
+  'horaires', jsonb_build_array(
+    jsonb_build_object('debut', date_trunc('day', now() + interval '1 day') + interval '9 hours',
+                       'fin', date_trunc('day', now() + interval '1 day') + interval '12 hours'),
+    jsonb_build_object('debut', date_trunc('day', now() + interval '1 day') + interval '13 hours',
+                       'fin', date_trunc('day', now() + interval '1 day') + interval '12 hours')))))$$,
+  'une grille avec une erreur est refusée en entier');
+select test.verifier((select count(*) = 2 and min(extract(hour from debut at time zone current_setting('TimeZone'))) = 11
+  from public.shifts where employe_id = '00000000-0000-0000-0000-000000000002'), 'après un refus, rien n''a changé');
+select public.remplir_grille(jsonb_build_array(jsonb_build_object(
+  'employe_id', '00000000-0000-0000-0000-000000000002',
+  'de', date_trunc('day', now() + interval '1 day'), 'a', date_trunc('day', now() + interval '2 days'),
+  'horaires', '[]'::jsonb)));
+select test.verifier((select count(*) = 0 from public.shifts where employe_id = '00000000-0000-0000-0000-000000000002'),
+  'vider une case supprime les horaires du jour');
+reset role;
+
+set role authenticated;
+select test.connecte('00000000-0000-0000-0000-000000000001');
+select test.verifier((select count(*) = 0 from public.modeles_horaires), 'un employé ne voit pas les horaires types');
+select test.refuse($$insert into public.modeles_horaires (nom, code, creneaux) values ('X', 'X', '[{"debut":"9:00","fin":"10:00"}]')$$,
+  'un employé ne crée pas d''horaire type');
+select test.refuse($$select public.remplir_grille('[]'::jsonb)$$, 'un employé ne peut pas utiliser la grille');
+reset role;
+
 -- ---------- Compte désactivé ----------
 update public.profiles set actif = false where id = '00000000-0000-0000-0000-000000000002';
 set role authenticated;

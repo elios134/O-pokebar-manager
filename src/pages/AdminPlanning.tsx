@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom'
 import Calendrier from '../components/Calendrier'
 import FenetreHoraire, { type ValeursHoraire } from '../components/FenetreHoraire'
 import FenetrePlanification from '../components/FenetrePlanification'
+import BasculeVue from '../components/planning/BasculeVue'
 import FiltresPlanning from '../components/planning/FiltresPlanning'
 import Gabarit from '../components/Gabarit'
 import { IconePlus } from '../components/Icones'
@@ -153,6 +154,7 @@ export default function AdminPlanning() {
       titre="Planning de l'équipe"
       actions={
         <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+          <BasculeVue />
           <button
             type="button"
             onClick={() =>

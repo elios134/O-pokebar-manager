@@ -25,6 +25,13 @@ export function creerBase() {
       { id: 'c1', employe_id: 'K', debut: jl(14), fin: jl(16), motif: 'Vacances', statut: 'en_attente', reponse: null, cree_le: at(0, 0), traite_le: null },
     ],
     appelsFonction: [],
+    modeles_horaires: [
+      { id: 'm1', nom: 'Ouverture', code: 'O', couleur: 0, ordre: 1, creneaux: [{ debut: '10:00', fin: '15:00' }] },
+      { id: 'm2', nom: 'Midi', code: 'M', couleur: 1, ordre: 2, creneaux: [{ debut: '11:30', fin: '15:30' }] },
+      { id: 'm3', nom: 'Soir', code: 'S', couleur: 2, ordre: 3, creneaux: [{ debut: '18:00', fin: '23:00' }] },
+      { id: 'm4', nom: 'Journée', code: 'J', couleur: 3, ordre: 4, creneaux: [{ debut: '10:00', fin: '18:00', pauseDebut: '14:00', pauseFin: '14:30' }] },
+      { id: 'm5', nom: 'Coupure', code: 'C', couleur: 4, ordre: 5, creneaux: [{ debut: '11:00', fin: '15:00' }, { debut: '18:00', fin: '22:00' }] },
+    ],
   }
   for (const p of db.profiles) p.equipe_id = p.id === 'L' ? 'EQ1' : null
   return db
@@ -70,6 +77,7 @@ function visibles(db, table, uid) {
   const admin = moi?.role === 'admin' && moi.actif
   if (table === 'profiles') return admin ? db.profiles : db.profiles.filter((p) => p.id === uid)
   if (table === 'equipes') return db.equipes
+  if (table === 'modeles_horaires') return admin ? db.modeles_horaires : []
   if (table === 'notifications') return (db.notifications ??= []).filter((n) => n.destinataire_id === uid)
   return admin ? db[table] : db[table].filter((s) => s.employe_id === uid && moi?.actif)
 }
@@ -155,6 +163,29 @@ export async function brancher(page, db) {
       const nomDe = (id) => { const p = db.profiles.find((x) => x.id === id); return `${p.prenom} ${p.nom}` }
       const sh = (id) => db.shifts.find((x) => x.id === id)
       const futur = (s) => s && new Date(s.debut) > new Date()
+      if (nom === 'remplir_grille') {
+        if (!admin) return route.fulfill({ status: 403, json: { code: '42501', message: 'Réservé aux administrateurs.' } })
+        // Tout ou rien : on travaille sur une copie.
+        const copie = db.shifts.map((s) => ({ ...s })); let n = 0
+        for (const c of a.p_cases) {
+          const de = new Date(c.de), fin = new Date(c.a)
+          const anciens = copie.filter((s) => s.employe_id === c.employe_id && new Date(s.debut) >= de && new Date(s.debut) < fin)
+            .sort((x, y) => new Date(x.debut) - new Date(y.debut))
+          c.horaires.forEach((h, i) => {
+            if (i < anciens.length) Object.assign(anciens[i], h)
+            else copie.push({ id: crypto.randomUUID(), employe_id: c.employe_id, note: null, cree_le: new Date().toISOString(), ...h })
+            n++
+          })
+          const enTrop = new Set(anciens.slice(c.horaires.length).map((s) => s.id))
+          for (let i = copie.length - 1; i >= 0; i--) if (enTrop.has(copie[i].id)) copie.splice(i, 1)
+        }
+        for (const s of copie) {
+          if (new Date(s.fin) <= new Date(s.debut)) return err('fin_apres_debut')
+          const e2 = calculerPause(s); if (e2) return err(e2)
+        }
+        db.shifts = copie; db.appelsGrille = [...(db.appelsGrille ?? []), a.p_cases]
+        return route.fulfill({ json: n })
+      }
       if (nom === 'collegues') return route.fulfill({ json: db.profiles.filter((p) => p.actif && p.id !== uid).map(({ id, prenom, nom }) => ({ id, prenom, nom })) })
       if (nom === 'horaires_collegue') return route.fulfill({ json: db.shifts.filter((x) => x.employe_id === a.p_collegue && futur(x)).map(({ id, debut, fin }) => ({ id, debut, fin })) })
       if (nom === 'mes_echanges') return route.fulfill({ json: db.echanges.filter((e) => admin || e.demandeur_id === uid || e.destinataire_id === uid).map((e) => ({
@@ -181,7 +212,7 @@ export async function brancher(page, db) {
       console.log('RPC NON SIMULÉE', nom); return route.fulfill({ status: 404, json: {} })
     }
     const table = url.pathname.replace('/rest/v1/', '')
-    if (!['profiles', 'shifts', 'equipes', 'conges', 'notifications'].includes(table)) { console.log('NON SIMULÉ', m, url.pathname); return route.fulfill({ status: 404, json: {} }) }
+    if (!['profiles', 'shifts', 'equipes', 'conges', 'notifications', 'modeles_horaires'].includes(table)) { console.log('NON SIMULÉ', m, url.pathname); return route.fulfill({ status: 404, json: {} }) }
     const lignes = filtrer(visibles(db, table, uid), url.searchParams)
     if (m === 'HEAD') return route.fulfill({ status: 200, headers: { 'content-range': `*/${lignes.length}`, 'access-control-expose-headers': 'content-range' }, body: '' })
     if (m === 'GET') {
@@ -214,6 +245,9 @@ export async function brancher(page, db) {
       return route.fulfill({ status: 204, body: '' }) // update : 0 ligne
     }
     if (!admin) return refus()
+    if (table === 'modeles_horaires' && m === 'POST' && db.modeles_horaires.some((x) => x.code === req.postDataJSON().code)) {
+      return route.fulfill({ status: 409, json: { code: '23505', message: 'duplicate key value violates unique constraint' } })
+    }
     if (table === 'equipes' && m === 'POST' && db.equipes.some((e) => e.nom === req.postDataJSON().nom)) {
       return route.fulfill({ status: 409, json: { code: '23505', message: 'duplicate key value violates unique constraint' } })
     }

@@ -1,85 +1,16 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Conge, Profil } from '../lib/types'
-import { construirePlage, dateDuJour, dureeHeures, formatHeures, heureDansService, jourSuivant } from '../lib/dates'
+import { calculer, type Creneau } from '../lib/creneaux'
+import { dateDuJour, formatHeures, jourSuivant } from '../lib/dates'
+import BlocPause, { petitChamp } from './BlocPause'
 import Fenetre, { boutonPrincipal, boutonSecondaire, champ, etiquette } from './Fenetre'
 import SelecteurJours from './SelecteurJours'
 
-interface Ligne {
-  debut: string
-  fin: string
-  pauseDebut: string // "" = pas de pause
-  pauseFin: string
-}
+type Ligne = Creneau
 
 const fmtJour = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
-const petit = 'h-11 w-full min-w-0 rounded-lg border border-[#C9CCD4] bg-white px-2 text-[15px] outline-none focus:border-marque'
-
-/** Pause facultative : un bouton pour l'ajouter, deux heures et un bouton pour la retirer. */
-function BlocPause({ ligne, onChange }: { ligne: Ligne; onChange: (champs: Partial<Ligne>) => void }) {
-  if (!ligne.pauseDebut && !ligne.pauseFin) {
-    return (
-      <button
-        type="button"
-        onClick={() => onChange(pauseParDefaut(ligne))}
-        className="col-span-2 h-11 rounded-lg border border-dashed border-[#9AA0AC] bg-white text-sm font-semibold text-marque-fonce hover:bg-marque-doux"
-      >
-        + Ajouter une pause
-      </button>
-    )
-  }
-  return (
-    <>
-      <label className="flex flex-col gap-1 text-xs font-semibold">
-        Début de pause
-        <input type="time" required value={ligne.pauseDebut} onChange={(e) => onChange({ pauseDebut: e.target.value })} className={petit} />
-      </label>
-      <label className="flex flex-col gap-1 text-xs font-semibold">
-        Fin de pause
-        <input type="time" required value={ligne.pauseFin} onChange={(e) => onChange({ pauseFin: e.target.value })} className={petit} />
-      </label>
-      <button
-        type="button"
-        onClick={() => onChange({ pauseDebut: '', pauseFin: '' })}
-        className="col-span-2 justify-self-start text-sm font-semibold text-[#9B1C1C] hover:underline"
-      >
-        Retirer la pause
-      </button>
-    </>
-  )
-}
-
-/** Pause de 30 min proposée au milieu de l'horaire. */
-function pauseParDefaut(l: Ligne): Partial<Ligne> {
-  const [hd, md] = l.debut.split(':').map(Number)
-  const [hf, mf] = l.fin.split(':').map(Number)
-  let debut = hd * 60 + md
-  let fin = hf * 60 + mf
-  if (fin <= debut) fin += 24 * 60
-  const milieu = Math.floor((debut + fin) / 2 / 30) * 30
-  debut = milieu % (24 * 60)
-  const h = (m: number) => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
-  return { pauseDebut: h(debut), pauseFin: h(debut + 30) }
-}
-
-/** Calcule un horaire ; renvoie une erreur lisible si les heures ne vont pas. */
-function calculer(jour: string, l: Ligne) {
-  if (!l.debut || !l.fin) return { erreur: 'Heures manquantes.' }
-  const plage = construirePlage(jour, l.debut, l.fin)
-  let pause: { debut: Date; fin: Date } | null = null
-  if (l.pauseDebut || l.pauseFin) {
-    if (!l.pauseDebut || !l.pauseFin) return { erreur: 'Indiquez le début et la fin de la pause, ou retirez-la.' }
-    pause = {
-      debut: heureDansService(jour, l.pauseDebut, plage.debut),
-      fin: heureDansService(jour, l.pauseFin, plage.debut),
-    }
-    if (pause.fin <= pause.debut || pause.debut < plage.debut || pause.fin > plage.fin) {
-      return { erreur: "La pause doit être dans l'horaire." }
-    }
-  }
-  const minutesPause = pause ? (pause.fin.getTime() - pause.debut.getTime()) / 60_000 : 0
-  return { plage, pause, travail: dureeHeures(plage.debut, plage.fin, minutesPause) }
-}
+const petit = petitChamp
 
 export default function FenetrePlanification({
   employes,
