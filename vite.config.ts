@@ -32,6 +32,8 @@ export default defineConfig({
         // L'interface est gardée en cache ; les données (Supabase) viennent toujours du réseau.
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         navigateFallback: '/index.html',
+        // Notifications sur le téléphone (voir public/push-sw.js)
+        importScripts: ['push-sw.js'],
         cleanupOutdatedCaches: true,
         runtimeCaching: [
           {

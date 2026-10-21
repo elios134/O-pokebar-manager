@@ -1,3 +1,4 @@
+-- Collé à la main dans l'éditeur SQL de Supabase le 21/10 (absent de l'historique des migrations en ligne).
 -- Notifications sur le téléphone (Web Push).
 -- Chaque appareil qui accepte les notifications est enregistré ici ; à chaque nouvelle notification,
 -- la base demande à la fonction serveur « envoyer-push » de l'envoyer sur les appareils du destinataire.

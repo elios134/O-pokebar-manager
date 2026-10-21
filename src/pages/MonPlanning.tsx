@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import type { EventSourceFuncArg, EventInput } from '@fullcalendar/core'
 import Calendrier from '../components/Calendrier'
 import Gabarit from '../components/Gabarit'
+import { BandeauNotifications } from '../components/pwa/Notifications'
 import { useAuth } from '../auth/AuthContext'
 import { supabase } from '../lib/supabase'
 import { CHAMPS_CONGE, CHAMPS_HORAIRE, type Conge, type Horaire } from '../lib/types'
@@ -192,6 +193,7 @@ export default function MonPlanning() {
               {erreur}
             </p>
           )}
+          <BandeauNotifications />
           {garde && (
             <p role="status" className="mb-3 rounded-lg bg-[#FFF1C2] px-3 py-2 text-sm text-[#6B4E00]">
               Hors connexion : planning enregistré sur ce téléphone le {texteQuand(garde)}.

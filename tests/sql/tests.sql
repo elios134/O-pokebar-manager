@@ -205,6 +205,49 @@ select test.refuse($$update public.profiles set heures_contrat = 10 where id = '
   'un employé ne change pas son contrat');
 reset role;
 
+-- ---------- Notifications sur téléphone ----------
+insert into vault.decrypted_secrets values ('push_url', 'https://exemple.test/envoyer-push'), ('push_cle', 'cle-secrete');
+set role authenticated;
+select test.connecte('00000000-0000-0000-0000-000000000001');
+select public.enregistrer_abonnement_push('https://push.exemple/abc', 'cleP', 'cleA');
+select test.verifier((select count(*) = 1 from public.abonnements_push), 'un employé enregistre son téléphone');
+select test.refuse($$insert into public.abonnements_push (profil_id, endpoint, p256dh, auth)
+  values ('00000000-0000-0000-0000-000000000001', 'https://push.exemple/x', 'a', 'b')$$, 'pas d''ajout direct dans la table');
+select test.refuse($$select public.enregistrer_abonnement_push('http://pas-https', 'a', 'b')$$, 'adresse non sécurisée refusée');
+reset role;
+-- Le même téléphone passe sur le compte de l'admin : il change de propriétaire.
+set role authenticated;
+select test.connecte('00000000-0000-0000-0000-00000000000a');
+select test.verifier((select count(*) = 0 from public.abonnements_push), 'l''admin ne voit pas les appareils des autres');
+select public.retirer_abonnement_push('https://push.exemple/abc');
+reset role;
+select test.verifier((select count(*) = 1 from public.abonnements_push), 'on ne peut pas retirer l''appareil de quelqu''un d''autre');
+set role authenticated;
+select test.connecte('00000000-0000-0000-0000-00000000000a');
+select public.enregistrer_abonnement_push('https://push.exemple/abc', 'cleP2', 'cleA2');
+reset role;
+select test.verifier((select profil_id = '00000000-0000-0000-0000-00000000000a' and p256dh = 'cleP2' from public.abonnements_push),
+  'un appareil réutilisé change de compte');
+-- Une notification pour l'admin déclenche l'envoi ; pour Léa (plus d'appareil), rien.
+delete from net.appels;
+select prive.notifier('00000000-0000-0000-0000-00000000000a', 'Essai', 'Texte', '/admin/planning');
+select prive.notifier('00000000-0000-0000-0000-000000000001', 'Essai', 'Texte', '/mon-planning');
+select test.verifier((select count(*) = 1 and bool_and(headers->>'x-cle-push' = 'cle-secrete' and url = 'https://exemple.test/envoyer-push') from net.appels),
+  'une notification part vers le téléphone de son destinataire seulement');
+-- Si l'envoi plante, la notification (et donc le planning) est quand même enregistrée.
+drop function net.http_post(text, jsonb, jsonb, jsonb, integer);
+select prive.notifier('00000000-0000-0000-0000-00000000000a', 'Essai 2', null, null);
+select test.verifier((select count(*) = 1 from public.notifications where titre = 'Essai 2'), 'un envoi raté ne bloque rien');
+set role authenticated;
+select test.connecte('00000000-0000-0000-0000-00000000000a');
+select public.retirer_abonnement_push('https://push.exemple/abc');
+reset role;
+select test.verifier((select count(*) = 0 from public.abonnements_push), 'l''admin retire son appareil');
+set role authenticated;
+select test.connecte('00000000-0000-0000-0000-00000000000a');
+select test.refuse('select * from public.cles_push()', 'même un admin ne lit pas les clés d''envoi');
+reset role;
+
 -- ---------- Compte désactivé ----------
 update public.profiles set actif = false where id = '00000000-0000-0000-0000-000000000002';
 set role authenticated;

@@ -5,6 +5,7 @@ import { boutonPrincipal } from '../components/Fenetre'
 import FormulaireEmail from '../components/FormulaireEmail'
 import Gabarit from '../components/Gabarit'
 import { CarteInstallation } from '../components/pwa/Installation'
+import { CarteNotifications } from '../components/pwa/Notifications'
 import { IconeSortie } from '../components/Icones'
 import { supabase } from '../lib/supabase'
 
@@ -127,6 +128,7 @@ export default function MonCompte() {
           </button>
         </form>
 
+        <CarteNotifications />
         <CarteInstallation />
       </div>
     </Gabarit>

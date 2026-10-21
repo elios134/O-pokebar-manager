@@ -161,6 +161,15 @@ export async function brancher(page, db) {
       const moi = db.profiles.find((p) => p.id === uid)
       const admin = moi?.role === 'admin' && moi.actif
       const err = (message) => route.fulfill({ status: 400, json: { code: 'P0001', message } })
+      if (nom === 'enregistrer_abonnement_push') {
+        if (!moi?.actif) return route.fulfill({ status: 403, json: { code: '42501', message: 'Non connecté.' } })
+        db.abonnements = [...(db.abonnements ?? []).filter((x) => x.endpoint !== a.p_endpoint), { profil_id: uid, endpoint: a.p_endpoint, p256dh: a.p_p256dh, auth: a.p_auth }]
+        return route.fulfill({ status: 204, body: '' })
+      }
+      if (nom === 'retirer_abonnement_push') {
+        db.abonnements = (db.abonnements ?? []).filter((x) => !(x.endpoint === a.p_endpoint && x.profil_id === uid))
+        return route.fulfill({ status: 204, body: '' })
+      }
       if (nom === 'remplir_grille') {
         if (!admin) return route.fulfill({ status: 403, json: { code: '42501', message: 'Réservé aux administrateurs.' } })
         // Tout ou rien : on travaille sur une copie.

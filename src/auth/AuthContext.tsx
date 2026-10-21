@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { dernierCompte, garder, relire, toutEffacer } from '../lib/horsLigne'
+import { oublierAppareil, synchroniserPush } from '../lib/push'
 import { supabase } from '../lib/supabase'
 import { CHAMPS_PROFIL, type Profil } from '../lib/types'
 
@@ -60,6 +61,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setSession(s)
         setProfil(p)
+        // Ce téléphone reçoit les notifications du compte connecté (s'il les avait acceptées).
+        if (s && p && !r?.horsLigne) void synchroniserPush()
       }
       setChargement(false)
     }
@@ -102,6 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function deconnexion() {
+    await oublierAppareil().catch(() => {})
     toutEffacer()
     await supabase.auth.signOut()
     setSession(null)
