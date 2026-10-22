@@ -2,11 +2,13 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthContext'
 import MiseAJour from './components/pwa/MiseAJour'
 import { Protege, RedirectionAccueil } from './auth/Protection'
+import AdminAcomptes from './pages/AdminAcomptes'
 import AdminConges from './pages/AdminConges'
 import AdminEmployes from './pages/AdminEmployes'
 import AdminPlanning from './pages/AdminPlanning'
 import Connexion from './pages/Connexion'
 import Impression from './pages/Impression'
+import MesAcomptes from './pages/MesAcomptes'
 import MesConges from './pages/MesConges'
 import MonCompte from './pages/MonCompte'
 import MotDePasseOublie from './pages/MotDePasseOublie'
@@ -26,6 +28,8 @@ function App() {
           <Route path="/mon-compte" element={<Protege><MonCompte /></Protege>} />
           <Route path="/mes-conges" element={<Protege><MesConges /></Protege>} />
           <Route path="/impression" element={<Protege><Impression /></Protege>} />
+          <Route path="/mes-acomptes" element={<Protege><MesAcomptes /></Protege>} />
+          <Route path="/admin/acomptes" element={<Protege admin><AdminAcomptes /></Protege>} />
           <Route path="/admin/conges" element={<Protege admin><AdminConges /></Protege>} />
           <Route path="/admin/planning" element={<Protege admin><AdminPlanning /></Protege>} />
           <Route path="/admin/grille" element={<Navigate to="/admin/planning" replace />} />

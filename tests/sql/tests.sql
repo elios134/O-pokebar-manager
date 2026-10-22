@@ -248,6 +248,41 @@ select test.connecte('00000000-0000-0000-0000-00000000000a');
 select test.refuse('select * from public.cles_push()', 'même un admin ne lit pas les clés d''envoi');
 reset role;
 
+-- ---------- Acomptes ----------
+set role authenticated;
+select test.connecte('00000000-0000-0000-0000-000000000001');
+insert into public.acomptes (employe_id, montant, motif) values ('00000000-0000-0000-0000-000000000001', 150, 'Réparation voiture');
+select test.verifier((select count(*) = 1 from public.acomptes), 'un employé demande un acompte');
+select test.refuse($$insert into public.acomptes (employe_id, montant) values ('00000000-0000-0000-0000-000000000001', 50)$$,
+  'une seule demande d''acompte en attente à la fois');
+select test.refuse($$insert into public.acomptes (employe_id, montant) values ('00000000-0000-0000-0000-000000000002', 50)$$,
+  'pas de demande d''acompte pour un autre');
+select test.refuse($$insert into public.acomptes (employe_id, montant) values ('00000000-0000-0000-0000-000000000001', -5)$$,
+  'montant négatif refusé');
+select test.refuse($$update public.acomptes set statut = 'accepte'$$, 'un employé ne valide pas son acompte');
+reset role;
+set role authenticated;
+select test.connecte('00000000-0000-0000-0000-000000000002');
+select test.verifier((select count(*) = 0 from public.acomptes), 'un employé ne voit pas les acomptes des autres');
+reset role;
+set role authenticated;
+select test.connecte('00000000-0000-0000-0000-00000000000a');
+select test.verifier((select count(*) = 1 from public.notifications where titre = 'Demande d''acompte' and texte like '%150,00 €'),
+  'l''admin est prévenu d''une demande d''acompte');
+update public.acomptes set statut = 'accepte', reponse = 'Versé vendredi', montant = 9999;
+select test.verifier((select montant = 150 and traite_par = '00000000-0000-0000-0000-00000000000a' from public.acomptes),
+  'acompte accepté : montant inchangé, qui a répondu est noté');
+reset role;
+select test.verifier((select count(*) = 1 from public.notifications where destinataire_id = '00000000-0000-0000-0000-000000000001'
+  and titre = 'Acompte accepté' and texte like '150,00 € · « Versé vendredi »'), 'l''employé est prévenu de la réponse');
+set role authenticated;
+select test.connecte('00000000-0000-0000-0000-000000000001');
+select test.refuse('delete from public.acomptes', 'un acompte accepté ne peut plus être retiré par l''employé');
+insert into public.acomptes (employe_id, montant) values ('00000000-0000-0000-0000-000000000001', 80);
+delete from public.acomptes where statut = 'en_attente';
+select test.verifier((select count(*) = 1 from public.acomptes), 'l''employé retire une demande en attente');
+reset role;
+
 -- ---------- Compte désactivé ----------
 update public.profiles set actif = false where id = '00000000-0000-0000-0000-000000000002';
 set role authenticated;

@@ -70,6 +70,12 @@ export const IconeSoleil = (p: SVGProps<SVGSVGElement>) => (
     <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
   </Base>
 )
+export const IconeEuro = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <path d="M18 7a7 7 0 1 0 0 10" />
+    <path d="M4 10h9M4 14h9" />
+  </Base>
+)
 export const IconeCompte = (p: SVGProps<SVGSVGElement>) => (
   <Base {...p}>
     <circle cx="12" cy="8" r="4" />

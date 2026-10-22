@@ -21,7 +21,7 @@ const db = creerBase()
 {
   const { ctx, page } = await ouvrir(db, TEL)
   await connecter(page, 'lea@x.fr'); await page.waitForURL('**/mon-planning')
-  await page.locator('nav.fixed').getByRole('link', { name: 'Compte' }).click(); await page.waitForURL('**/mon-compte')
+  await page.locator('nav.fixed').getByRole('link', { name: 'Compte', exact: true }).click(); await page.waitForURL('**/mon-compte')
   await page.getByRole('heading', { name: 'Mes informations' }).waitFor()
   verif('mon compte : infos affichées', (await page.locator('main').innerText()).includes('lea@x.fr'))
   await page.getByText('Salle').waitFor({ timeout: 4000 }).catch(() => {})

@@ -25,6 +25,7 @@ export function creerBase() {
       { id: 'c1', employe_id: 'K', debut: jl(14), fin: jl(16), motif: 'Vacances', statut: 'en_attente', reponse: null, cree_le: at(0, 0), traite_le: null },
     ],
     appelsFonction: [],
+    acomptes: [],
     modeles_horaires: [
       { id: 'm1', nom: 'Ouverture', code: 'O', couleur: 0, ordre: 1, creneaux: [{ debut: '10:00', fin: '15:00' }] },
       { id: 'm2', nom: 'Midi', code: 'M', couleur: 1, ordre: 2, creneaux: [{ debut: '11:30', fin: '15:30' }] },
@@ -197,7 +198,7 @@ export async function brancher(page, db) {
       console.log('RPC NON SIMULÉE', nom); return route.fulfill({ status: 404, json: {} })
     }
     const table = url.pathname.replace('/rest/v1/', '')
-    if (!['profiles', 'shifts', 'equipes', 'conges', 'notifications', 'modeles_horaires'].includes(table)) { console.log('NON SIMULÉ', m, url.pathname); return route.fulfill({ status: 404, json: {} }) }
+    if (!['profiles', 'shifts', 'equipes', 'conges', 'notifications', 'modeles_horaires', 'acomptes'].includes(table)) { console.log('NON SIMULÉ', m, url.pathname); return route.fulfill({ status: 404, json: {} }) }
     const lignes = filtrer(visibles(db, table, uid), url.searchParams)
     if (m === 'HEAD') return route.fulfill({ status: 200, headers: { 'content-range': `*/${lignes.length}`, 'access-control-expose-headers': 'content-range' }, body: '' })
     if (m === 'GET') {
@@ -216,15 +217,18 @@ export async function brancher(page, db) {
       lignes.forEach((l) => Object.assign(l, maj)); return route.fulfill({ status: 204, body: '' })
     }
     // Congés : l'employé peut demander pour lui (en attente) et annuler sa demande en attente.
-    if (table === 'conges' && !admin) {
+    if ((table === 'conges' || table === 'acomptes') && !admin) {
       if (m === 'POST') {
         const l = req.postDataJSON()
         if (l.employe_id !== uid || (l.statut && l.statut !== 'en_attente')) return refus()
-        db.conges.push({ id: crypto.randomUUID(), statut: 'en_attente', reponse: null, motif: null, cree_le: new Date().toISOString(), traite_le: null, ...l })
+        if (table === 'acomptes' && db.acomptes.some((x) => x.employe_id === uid && x.statut === 'en_attente')) {
+          return route.fulfill({ status: 409, json: { code: '23505', message: 'duplicate key value violates unique constraint' } })
+        }
+        db[table].push({ id: crypto.randomUUID(), statut: 'en_attente', reponse: null, motif: null, cree_le: new Date().toISOString(), traite_le: null, ...l })
         return route.fulfill({ status: 201, body: '' })
       }
       if (m === 'DELETE') {
-        const ids = new Set(lignes.filter((l) => l.statut === 'en_attente').map((l) => l.id)); db.conges = db.conges.filter((l) => !ids.has(l.id))
+        const ids = new Set(lignes.filter((l) => l.statut === 'en_attente').map((l) => l.id)); db[table] = db[table].filter((l) => !ids.has(l.id))
         return route.fulfill({ status: 204, body: '' })
       }
       return route.fulfill({ status: 204, body: '' }) // update : 0 ligne
@@ -237,7 +241,7 @@ export async function brancher(page, db) {
       return route.fulfill({ status: 409, json: { code: '23505', message: 'duplicate key value violates unique constraint' } })
     }
     if (table === 'equipes' && m === 'DELETE') for (const p of db.profiles) if (lignes.some((l) => l.id === p.equipe_id)) p.equipe_id = null
-    if (table === 'conges' && m === 'PATCH') { const maj = req.postDataJSON(); if ('statut' in maj) maj.traite_le = maj.statut === 'en_attente' ? null : new Date().toISOString() }
+    if ((table === 'conges' || table === 'acomptes') && m === 'PATCH') { const maj = req.postDataJSON(); if ('statut' in maj) maj.traite_le = maj.statut === 'en_attente' ? null : new Date().toISOString() }
     if (m === 'POST') {
       const nouv = [].concat(req.postDataJSON()).map((l) => ({ id: crypto.randomUUID(), cree_le: new Date().toISOString(), note: null, pause_minutes: 0, ...l }))
       if (table === 'shifts') for (const l of nouv) { const e = calculerPause(l); if (e) return route.fulfill({ status: 400, json: { code: '23514', message: e } }) }

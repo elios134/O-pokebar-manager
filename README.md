@@ -3,12 +3,12 @@
 Site de gestion des plannings des employés (React + TypeScript + Vite + Tailwind + Supabase + FullCalendar).
 
 - **Employé** : voit son planning (semaine, mois, liste), ses heures de la semaine et son prochain service ;
-  demande des congés et suit la réponse.
+  demande des congés et des acomptes sur salaire, et suit la réponse.
 - **Admin** : planning de l'équipe sous forme de grille façon tableur (une ligne par employé, une colonne par
   jour) remplie avec des horaires types (pinceau, sélection, clavier, copie de la semaine précédente, pauses,
   coupures, services de nuit, notes), filtres par équipe et par employé, export PDF. Vue « par employé »
   sur une semaine ou un mois, avec sa semaine type à appliquer en un clic et ses heures comparées au contrat.
-  Réponse aux demandes de congé, gestion des comptes et des équipes.
+  Réponse aux demandes de congé et d'acompte, gestion des comptes et des équipes.
 - **PWA** : installable sur téléphone et ordinateur (bouton discret, toujours disponible dans « Mon compte »),
   message « Nouvelle version disponible » lors des mises à jour, dernier planning consultable sans réseau,
   et notifications sur le téléphone (à activer dans « Mon compte » ; sur iPhone, après ajout à l'écran d'accueil).

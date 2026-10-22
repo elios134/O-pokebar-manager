@@ -6,7 +6,7 @@ import { couleurDe, initiales } from '../lib/couleurs'
 import { dateDuJour, formatPeriode, jourSuivant, nbJours } from '../lib/dates'
 import { supabase } from '../lib/supabase'
 import { CHAMPS_CONGE, CHAMPS_PROFIL, type Conge, type Equipe, type Profil, type StatutConge } from '../lib/types'
-import { signalerCongesModifies } from '../lib/useCongesEnAttente'
+import { signalerDemandesModifiees } from '../lib/useDemandesEnAttente'
 
 type Onglet = 'en_attente' | 'traitees'
 
@@ -71,7 +71,7 @@ export default function AdminConges() {
         ? { type: 'erreur', texte: 'Réponse impossible. Réessayez.' }
         : { type: 'ok', texte: `Congé de ${p?.prenom ?? "l'employé"} ${statut === 'accepte' ? 'accepté' : 'refusé'}.` },
     )
-    signalerCongesModifies()
+    signalerDemandesModifiees('conges')
     void charger()
   }
 

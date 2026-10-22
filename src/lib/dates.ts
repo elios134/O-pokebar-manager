@@ -99,3 +99,7 @@ export function numeroSemaine(d: Date) {
   const debutAnnee = new Date(Date.UTC(t.getUTCFullYear(), 0, 1))
   return Math.ceil(((t.getTime() - debutAnnee.getTime()) / 86_400_000 + 1) / 7)
 }
+
+const fmtEuros = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
+/** "150,00 €" */
+export const euros = (montant: number | string) => fmtEuros.format(Number(montant))

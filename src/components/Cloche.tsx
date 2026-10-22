@@ -58,10 +58,12 @@ export default function Cloche({ moi }: { moi: string }) {
     const recharger = () => void charger()
     window.addEventListener('focus', recharger)
     window.addEventListener('conges-modifies', recharger)
+    window.addEventListener('acomptes-modifies', recharger)
     return () => {
       window.clearInterval(minuteur)
       window.removeEventListener('focus', recharger)
       window.removeEventListener('conges-modifies', recharger)
+      window.removeEventListener('acomptes-modifies', recharger)
     }
   }, [charger])
 

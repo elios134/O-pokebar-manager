@@ -43,4 +43,16 @@ export interface Conge {
 
 export const CHAMPS_PROFIL = 'id, nom, prenom, role, actif, email, equipe_id, heures_contrat'
 export const CHAMPS_HORAIRE = 'id, employe_id, debut, fin, note, pause_minutes, pause_debut, pause_fin'
+export interface Acompte {
+  id: string
+  employe_id: string
+  montant: number
+  motif: string | null
+  statut: StatutConge
+  reponse: string | null
+  cree_le: string
+  traite_le: string | null
+}
+
+export const CHAMPS_ACOMPTE = 'id, employe_id, montant, motif, statut, reponse, cree_le, traite_le'
 export const CHAMPS_CONGE = 'id, employe_id, debut, fin, motif, statut, reponse, cree_le, traite_le'

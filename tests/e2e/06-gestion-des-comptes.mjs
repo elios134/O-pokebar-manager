@@ -61,7 +61,7 @@ async function connecter(page, email) {
   await connecter(page, 'karim.b@opokebar.fr'); await page.waitForURL('**/mon-planning')
   verif('Karim se connecte avec son nouvel email', true)
   verif('menu employé sans « Échanges »', (await page.locator('nav.fixed').getByRole('link', { name: /Échanges/ }).count()) === 0)
-  await page.locator('nav.fixed').getByRole('link', { name: 'Compte' }).click(); await page.getByRole('heading', { name: 'Mes informations' }).waitFor()
+  await page.locator('nav.fixed').getByRole('link', { name: 'Compte', exact: true }).click(); await page.getByRole('heading', { name: 'Mes informations' }).waitFor()
   verif('employé : ne peut pas changer son email lui-même', (await page.getByLabel('Email de connexion').count()) === 0)
   await ctx.close()
 }

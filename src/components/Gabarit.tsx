@@ -3,10 +3,10 @@ import { NavLink } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { initiales } from '../lib/couleurs'
 import { useEnLigne } from '../lib/horsLigne'
-import { useCongesEnAttente } from '../lib/useCongesEnAttente'
+import { useDemandesEnAttente } from '../lib/useDemandesEnAttente'
 import { BoutonInstaller } from './pwa/Installation'
 import Cloche from './Cloche'
-import { IconeCalendrier, IconeCompte, IconeEquipe, IconeSortie, IconeSoleil } from './Icones'
+import { IconeCalendrier, IconeCompte, IconeEquipe, IconeEuro, IconeSortie, IconeSoleil } from './Icones'
 
 interface Lien {
   vers: string
@@ -45,7 +45,8 @@ export default function Gabarit({
 }) {
   const { profil, deconnexion } = useAuth()
   const admin = profil?.role === 'admin'
-  const enAttente = useCongesEnAttente(admin)
+  const enAttente = useDemandesEnAttente('conges', admin)
+  const acomptesEnAttente = useDemandesEnAttente('acomptes', admin)
   const enLigne = useEnLigne()
 
   const liens: Lien[] = admin
@@ -53,10 +54,12 @@ export default function Gabarit({
         { vers: '/admin/planning', texte: 'Planning', icone: IconeCalendrier },
         { vers: '/admin/employes', texte: 'Employés', icone: IconeEquipe },
         { vers: '/admin/conges', texte: 'Congés', icone: IconeSoleil, badge: enAttente },
+        { vers: '/admin/acomptes', texte: 'Acomptes', icone: IconeEuro, badge: acomptesEnAttente },
       ]
     : [
         { vers: '/mon-planning', texte: 'Planning', icone: IconeCalendrier },
         { vers: '/mes-conges', texte: 'Congés', icone: IconeSoleil },
+        { vers: '/mes-acomptes', texte: 'Acomptes', icone: IconeEuro },
       ]
 
   return (
