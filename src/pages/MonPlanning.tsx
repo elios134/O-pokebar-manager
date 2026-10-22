@@ -3,6 +3,7 @@ import type FullCalendar from '@fullcalendar/react'
 import { useNavigate } from 'react-router-dom'
 import type { EventSourceFuncArg, EventInput } from '@fullcalendar/core'
 import Calendrier from '../components/Calendrier'
+import FenetreJour from '../components/FenetreJour'
 import Gabarit from '../components/Gabarit'
 import { BandeauNotifications } from '../components/pwa/Notifications'
 import { useAuth } from '../auth/AuthContext'
@@ -51,6 +52,7 @@ function evenements(horaires: Horaire[], conges: Conge[]): EventInput[] {
     borderColor: COULEUR.trait,
     textColor: c.statut === 'accepte' ? '#FFFFFF' : COULEUR.texte,
     classNames: c.statut === 'accepte' ? ['conge'] : ['conge', 'conge-attente'],
+    extendedProps: { conge: c },
   }))
   return [
     ...evenementsConges,
@@ -62,7 +64,7 @@ function evenements(horaires: Horaire[], conges: Conge[]): EventInput[] {
       backgroundColor: COULEUR.fond,
       borderColor: COULEUR.trait,
       textColor: COULEUR.texte,
-      extendedProps: { pause: h.pause_debut ? { debut: h.pause_debut, fin: h.pause_fin } : null },
+      extendedProps: { horaire: h, pause: h.pause_debut ? { debut: h.pause_debut, fin: h.pause_fin } : null },
     })),
   ]
 }
@@ -86,6 +88,23 @@ export default function MonPlanning() {
   const [erreur, setErreur] = useState<string | null>(null)
   // Date des données gardées quand on les affiche faute de réseau.
   const [garde, setGarde] = useState<number | null>(null)
+  // Jour ouvert dans la fenêtre de détail (clic sur un jour ou un horaire).
+  const [detail, setDetail] = useState<{ jour: string; horaires: Horaire[]; conges: Conge[] } | null>(null)
+
+  /** Ouvre le détail d'un jour avec les horaires et congés déjà affichés dans le calendrier. */
+  function ouvrirJour(jour: string) {
+    const evenements = calendrier.current?.getApi().getEvents() ?? []
+    setDetail({
+      jour,
+      horaires: evenements
+        .map((e) => e.extendedProps.horaire as Horaire | undefined)
+        .filter((h): h is Horaire => !!h && jourLocal(new Date(h.debut)) === jour)
+        .sort((a, b) => a.debut.localeCompare(b.debut)),
+      conges: evenements
+        .map((e) => e.extendedProps.conge as Conge | undefined)
+        .filter((c): c is Conge => !!c && c.debut <= jour && c.fin >= jour),
+    })
+  }
   const calendrier = useRef<FullCalendar>(null)
   const naviguer = useNavigate()
 
@@ -199,7 +218,18 @@ export default function MonPlanning() {
               Hors connexion : planning enregistré sur ce téléphone le {texteQuand(garde)}.
             </p>
           )}
-          <Calendrier ref={calendrier} events={chargerEvenements} />
+          <Calendrier
+            ref={calendrier}
+            events={chargerEvenements}
+            dateClick={(info) => info.view.type === 'dayGridMonth' && ouvrirJour(jourLocal(info.date))}
+            eventClick={(info) => {
+              info.jsEvent.preventDefault()
+              const c = info.event.extendedProps.conge as Conge | undefined
+              const h = info.event.extendedProps.horaire as Horaire | undefined
+              if (h) ouvrirJour(jourLocal(new Date(h.debut)))
+              else if (c) ouvrirJour(info.view.type === 'dayGridMonth' ? jourLocal(info.event.start!) : c.debut)
+            }}
+          />
         </div>
 
         <aside className="order-1 grid grid-cols-2 gap-3 lg:order-2 lg:w-64 lg:grid-cols-1">
@@ -235,6 +265,8 @@ export default function MonPlanning() {
           </div>
         </aside>
       </div>
+      {detail && <FenetreJour {...detail} onFermer={() => setDetail(null)} />}
     </Gabarit>
   )
 }
+

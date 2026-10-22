@@ -138,3 +138,9 @@ body {
     background: #ffffff;
   }
 }
+
+/* Vue mois : on peut toucher un jour pour voir son détail. */
+.fc .fc-daygrid-day,
+.fc .fc-event {
+  cursor: pointer;
+}
