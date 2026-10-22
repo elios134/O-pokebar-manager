@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import BadgeStatut from '../components/BadgeStatut'
+import FenetreAjoutConge from '../components/conges/FenetreAjoutConge'
 import { champ } from '../components/Fenetre'
 import Gabarit from '../components/Gabarit'
+import { IconePlus } from '../components/Icones'
 import { couleurDe, initiales } from '../lib/couleurs'
 import { dateDuJour, formatPeriode, jourSuivant, nbJours } from '../lib/dates'
 import { supabase } from '../lib/supabase'
@@ -16,6 +18,7 @@ export default function AdminConges() {
   const [profils, setProfils] = useState<Profil[]>([])
   const [equipes, setEquipes] = useState<Equipe[]>([])
   const [horairesPendant, setHorairesPendant] = useState<Record<string, number>>({})
+  const [ajout, setAjout] = useState(false)
   const [message, setMessage] = useState<{ type: 'ok' | 'erreur'; texte: string } | null>(null)
 
   async function afficher(
@@ -81,7 +84,19 @@ export default function AdminConges() {
   const nbAttente = (conges ?? []).filter((c) => c.statut === 'en_attente').length
 
   return (
-    <Gabarit titre="Demandes de congé">
+    <Gabarit
+      titre="Demandes de congé"
+      actions={
+        <button
+          type="button"
+          onClick={() => setAjout(true)}
+          className="flex h-11 items-center gap-2 rounded-xl bg-marque px-4 text-sm font-bold text-white hover:bg-marque-fonce sm:text-[15px]"
+        >
+          <IconePlus />
+          Ajouter un congé
+        </button>
+      }
+    >
       <div role="tablist" className="mb-4 flex w-fit gap-1 rounded-xl bg-[#E8E9EE] p-1">
         {(
           [
@@ -140,6 +155,19 @@ export default function AdminConges() {
             )
           })}
         </ul>
+      )}
+
+      {ajout && (
+        <FenetreAjoutConge
+          employes={profils.filter((p) => p.actif)}
+          onFermer={() => setAjout(false)}
+          onAjoute={(texte) => {
+            setAjout(false)
+            setOnglet('traitees')
+            setMessage({ type: 'ok', texte })
+            void charger()
+          }}
+        />
       )}
     </Gabarit>
   )

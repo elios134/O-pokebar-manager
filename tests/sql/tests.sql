@@ -283,6 +283,25 @@ delete from public.acomptes where statut = 'en_attente';
 select test.verifier((select count(*) = 1 from public.acomptes), 'l''employé retire une demande en attente');
 reset role;
 
+-- ---------- Congé saisi par l'admin ----------
+set role authenticated;
+select test.connecte('00000000-0000-0000-0000-00000000000a');
+insert into public.conges (employe_id, debut, fin, motif, statut)
+  values ('00000000-0000-0000-0000-000000000002', current_date + 30, current_date + 31, 'Arrêt maladie', 'accepte');
+select test.verifier((select traite_par = '00000000-0000-0000-0000-00000000000a' and traite_le is not null
+  from public.conges where motif = 'Arrêt maladie'), 'l''admin saisit un congé déjà accepté, signé de son nom');
+reset role;
+select test.verifier((select count(*) = 1 from public.notifications where destinataire_id = '00000000-0000-0000-0000-000000000002'
+  and titre = 'Congé ajouté par votre responsable' and texte like '%Arrêt maladie'), 'l''employé est prévenu du congé saisi');
+select test.verifier((select count(*) = 0 from public.notifications where titre = 'Demande de congé' and texte like 'Tom%'),
+  'un congé saisi par l''admin n''apparaît pas comme une demande');
+set role authenticated;
+select test.connecte('00000000-0000-0000-0000-000000000001');
+select test.refuse($$insert into public.conges (employe_id, debut, fin, statut)
+  values ('00000000-0000-0000-0000-000000000002', current_date + 40, current_date + 41, 'accepte')$$,
+  'un employé ne saisit pas de congé pour un autre');
+reset role;
+
 -- ---------- Compte désactivé ----------
 update public.profiles set actif = false where id = '00000000-0000-0000-0000-000000000002';
 set role authenticated;
