@@ -37,6 +37,13 @@ verif('tout lu', db.notifications.filter((n) => n.destinataire_id === 'L').every
 verif('notification de Karim intacte', db.notifications.find((n) => n.id === 'n4').lue === false)
 await page.keyboard.press('Escape')
 verif('compteur à zéro', (await cloche.getAttribute('aria-label')) === 'Notifications')
+page.on('dialog', (d) => d.accept())
+await cloche.click()
+await page.getByRole('button', { name: 'Tout effacer' }).click()
+await page.getByText('Aucune notification pour le moment.').waitFor({ timeout: 5000 }).catch(() => {})
+verif('tout effacer : liste vide', (await page.getByText('Aucune notification pour le moment.').count()) === 1)
+verif('tout effacer : celles de Léa supprimées', !db.notifications.some((n) => n.destinataire_id === 'L'))
+verif('tout effacer : celle de Karim intacte', db.notifications.some((n) => n.id === 'n4'))
 console.log(`\n${ok} ok, ${ko} échec(s)`)
 await browser.close()
 process.exitCode = ko ? 1 : 0

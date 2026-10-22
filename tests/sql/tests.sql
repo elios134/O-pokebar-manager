@@ -302,6 +302,15 @@ select test.refuse($$insert into public.conges (employe_id, debut, fin, statut)
   'un employé ne saisit pas de congé pour un autre');
 reset role;
 
+-- ---------- Vider ses notifications ----------
+set role authenticated;
+select test.connecte('00000000-0000-0000-0000-000000000001');
+delete from public.notifications;
+select test.verifier((select count(*) = 0 from public.notifications), 'un employé vide ses notifications');
+reset role;
+select test.verifier((select count(*) > 0 from public.notifications where destinataire_id <> '00000000-0000-0000-0000-000000000001'),
+  'les notifications des autres ne sont pas effacées');
+
 -- ---------- Compte désactivé ----------
 update public.profiles set actif = false where id = '00000000-0000-0000-0000-000000000002';
 set role authenticated;

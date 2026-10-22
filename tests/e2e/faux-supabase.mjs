@@ -212,6 +212,10 @@ export async function brancher(page, db) {
     const admin = moi?.role === 'admin' && moi.actif
     const refus = () => route.fulfill({ status: 403, json: { code: '42501', message: 'new row violates row-level security policy' } })
     if (table === 'notifications') {
+      if (m === 'DELETE') {
+        const ids = new Set(lignes.map((l) => l.id)); db.notifications = db.notifications.filter((n) => !ids.has(n.id))
+        return route.fulfill({ status: 204, body: '' })
+      }
       if (m !== 'PATCH') return refus()
       const maj = req.postDataJSON(); if (Object.keys(maj).some((k) => k !== 'lue')) return refus()
       lignes.forEach((l) => Object.assign(l, maj)); return route.fulfill({ status: 204, body: '' })

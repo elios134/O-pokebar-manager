@@ -78,6 +78,12 @@ export default function Cloche({ moi }: { moi: string }) {
     if (n.lien) naviguer(n.lien)
   }
 
+  async function toutEffacer() {
+    if (!window.confirm('Effacer toutes vos notifications ?')) return
+    const { error } = await supabase.from('notifications').delete().eq('destinataire_id', moi)
+    if (!error) setListe([])
+  }
+
   async function toutLire() {
     await supabase.from('notifications').update({ lue: true }).eq('destinataire_id', moi).eq('lue', false)
     setListe((l) => l.map((x) => ({ ...x, lue: true })))
@@ -104,15 +110,24 @@ export default function Cloche({ moi }: { moi: string }) {
             <p className="py-6 text-center text-gris">Aucune notification pour le moment.</p>
           ) : (
             <>
-              {nonLues > 0 && (
+              <div className="mb-3 flex flex-wrap gap-x-5 gap-y-2">
+                {nonLues > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => void toutLire()}
+                    className="text-sm font-semibold text-marque-fonce hover:underline"
+                  >
+                    Tout marquer comme lu
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => void toutLire()}
-                  className="mb-3 text-sm font-semibold text-marque-fonce hover:underline"
+                  onClick={() => void toutEffacer()}
+                  className="ml-auto text-sm font-semibold text-[#9B1C1C] hover:underline"
                 >
-                  Tout marquer comme lu
+                  Tout effacer
                 </button>
-              )}
+              </div>
               <ul className="-mx-2 flex flex-col">
                 {liste.map((n) => (
                   <li key={n.id}>
