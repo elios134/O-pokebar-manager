@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
     const motDePasse = String(corps.motDePasse ?? '')
     const prenom = String(corps.prenom ?? '').trim()
     const nom = String(corps.nom ?? '').trim()
-    const role = corps.role === 'admin' ? 'admin' : 'employe'
+    const role = corps.role === 'admin' || corps.role === 'cuisine' ? corps.role : 'employe'
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return erreur('Email invalide.')
     if (motDePasse.length < 8) return erreur('Le mot de passe doit faire au moins 8 caractères.')
@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
 
     // Le profil est créé par le trigger (rôle 'employe', sans équipe). On applique le rôle et l'équipe demandés.
     const equipeId = typeof corps.equipe_id === 'string' && corps.equipe_id ? corps.equipe_id : null
-    if (role === 'admin' || equipeId) {
+    if (role !== 'employe' || equipeId) {
       await admin.from('profiles').update({ role, equipe_id: equipeId }).eq('id', data.user.id)
     }
     return reponse({ id: data.user.id })

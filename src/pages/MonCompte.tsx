@@ -62,7 +62,7 @@ export default function MonCompte() {
             <dt className="text-gris">Email</dt>
             <dd className="font-semibold break-all">{profil?.email}</dd>
             <dt className="text-gris">Rôle</dt>
-            <dd className="font-semibold">{profil?.role === 'admin' ? 'Administrateur' : 'Employé'}</dd>
+            <dd className="font-semibold">{profil?.role === 'admin' ? 'Administrateur' : profil?.role === 'cuisine' ? 'Cuisine' : 'Employé'}</dd>
             <dt className="text-gris">Équipe</dt>
             <dd className="font-semibold">{equipe ?? 'Aucune'}</dd>
           </dl>

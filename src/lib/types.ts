@@ -1,4 +1,9 @@
-export type Role = 'employe' | 'admin'
+export type Role = 'employe' | 'cuisine' | 'admin'
+
+/** Rôles qui ont accès à l'espace Cuisine (DLC, températures, commandes). */
+export const accesCuisine = (role?: Role) => role === 'cuisine' || role === 'admin'
+
+export const NOMS_ROLES: Record<Role, string> = { employe: 'Employé', cuisine: 'Cuisine', admin: 'Admin' }
 
 export interface Profil {
   id: string

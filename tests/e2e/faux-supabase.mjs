@@ -7,13 +7,15 @@ export function creerBase() {
   const at = (jour, h) => { const d = new Date(lundi); d.setDate(d.getDate()+jour); d.setHours(h,0,0,0); return d.toISOString() }
   const jl = (jour) => { const d = new Date(lundi); d.setDate(d.getDate()+jour); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` }
   const db = {
-    comptes: { 'admin@x.fr': 'A', 'lea@x.fr': 'L', 'karim@x.fr': 'K', 'off@x.fr': 'O' },
+    comptes: { 'admin@x.fr': 'A', 'lea@x.fr': 'L', 'karim@x.fr': 'K', 'off@x.fr': 'O', 'chef@x.fr': 'C' },
     profiles: [
       { id: 'A', prenom: 'Ana', nom: 'Dupont', role: 'admin', actif: true, email: 'admin@x.fr' },
       { id: 'L', prenom: 'Léa', nom: 'Martin', role: 'employe', actif: true, email: 'lea@x.fr' },
       { id: 'K', prenom: 'Karim', nom: 'Benali', role: 'employe', actif: true, email: 'karim@x.fr' },
       { id: 'O', prenom: 'Zoé', nom: 'Off', role: 'employe', actif: false, email: 'off@x.fr' },
+      { id: 'C', prenom: 'Chloé', nom: 'Chef', role: 'cuisine', actif: true, email: 'chef@x.fr' },
     ],
+    dlc_produits: [], frigos: [], releves_temperature: [], commandes: [], photos: {},
     shifts: [
       { id: 's1', employe_id: 'L', debut: at(0, 9), fin: at(0, 17), note: 'Ouverture', pause_minutes: 60, pause_debut: at(0, 12), pause_fin: at(0, 13), cree_le: at(0,0) },
       { id: 's2', pause_minutes: 0, pause_debut: null, pause_fin: null, employe_id: 'L', debut: at(3, 18), fin: at(4, 2), note: 'Fermeture', cree_le: at(0,0) },
@@ -52,25 +54,33 @@ function quiAppelle(req) {
 function filtrer(lignes, params) {
   for (const [cle, val] of params) {
     if (['select', 'order', 'limit', 'offset', 'columns'].includes(cle)) continue
+    if (cle === 'or') {
+      const conds = val.replace(/^\(|\)$/g, '').split(',').map((c) => { const [col, op, ...r] = c.split('.'); return [col, op, r.join('.')] })
+      lignes = lignes.filter((l) => conds.some(([col, op, v]) => tester(l[col], op, v)))
+      continue
+    }
     const [op, ...reste] = val.split('.'); const v = reste.join('.')
-    lignes = lignes.filter((l) => {
-      const x = l[cle]
-      if (op === 'eq') return String(x) === v
-      if (op === 'neq') return String(x) !== v
-      if (op === 'is') return v === 'null' ? x == null : String(x) === v
-      const a = new Date(x).getTime(), b = new Date(v).getTime()
-      if (op === 'lt') return a < b
-      if (op === 'gt') return a > b
-      if (op === 'gte') return a >= b
-      if (op === 'lte') return a <= b
-      throw new Error('op inconnue ' + op)
-    })
+    lignes = lignes.filter((l) => tester(l[cle], op, v))
   }
   const ordre = params.get('order')
   if (ordre) { const c = ordre.split('.')[0]; lignes = [...lignes].sort((p, q) => String(p[c]).localeCompare(String(q[c]))) }
   if (params.get('limit')) lignes = lignes.slice(0, +params.get('limit'))
   return lignes
 }
+function tester(x, op, v) {
+  if (op === 'eq') return String(x) === v
+  if (op === 'neq') return String(x) !== v
+  if (op === 'is') return v === 'null' ? x == null : String(x) === v
+  const a = new Date(x).getTime(), b = new Date(v).getTime()
+  if (op === 'lt') return a < b
+  if (op === 'gt') return a > b
+  if (op === 'gte') return a >= b
+  if (op === 'lte') return a <= b
+  throw new Error('op inconnue ' + op)
+}
+
+const TABLES_CUISINE = ['dlc_produits', 'frigos', 'releves_temperature', 'commandes']
+const IMAGE = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
 
 // RLS simplifiée, comme en base
 function visibles(db, table, uid) {
@@ -80,6 +90,7 @@ function visibles(db, table, uid) {
   if (table === 'equipes') return db.equipes
   if (table === 'modeles_horaires') return admin ? db.modeles_horaires : []
   if (table === 'notifications') return (db.notifications ??= []).filter((n) => n.destinataire_id === uid)
+  if (TABLES_CUISINE.includes(table)) return moi?.actif && ['cuisine', 'admin'].includes(moi.role) ? db[table] : []
   return admin ? db[table] : db[table].filter((s) => s.employe_id === uid && moi?.actif)
 }
 
@@ -197,8 +208,59 @@ export async function brancher(page, db) {
       }
       console.log('RPC NON SIMULÉE', nom); return route.fulfill({ status: 404, json: {} })
     }
+    if (url.pathname.startsWith('/storage/v1/')) {
+      const moi = db.profiles.find((p) => p.id === uid)
+      const cuisine = moi?.actif && ['cuisine', 'admin'].includes(moi.role)
+      if (url.pathname.startsWith('/storage/v1/object/public-lu/')) return route.fulfill({ status: 200, contentType: 'image/png', body: IMAGE })
+      if (!cuisine) return route.fulfill({ status: 403, json: { statusCode: '403', error: 'Unauthorized', message: 'new row violates row-level security policy' } })
+      if (url.pathname.startsWith('/storage/v1/object/sign/dlc')) {
+        const { paths } = req.postDataJSON()
+        return route.fulfill({ json: paths.map((p) => ({ path: p, error: db.photos[p] ? null : 'Not found', signedURL: db.photos[p] ? `/object/public-lu/dlc/${p}?token=t` : null })) })
+      }
+      if (m === 'POST' && url.pathname.startsWith('/storage/v1/object/dlc/')) {
+        const chemin = url.pathname.replace('/storage/v1/object/dlc/', '')
+        db.photos[chemin] = req.postDataBuffer()?.length ?? 0
+        return route.fulfill({ json: { Key: `dlc/${chemin}`, Id: crypto.randomUUID() } })
+      }
+      console.log('STOCKAGE NON SIMULÉ', m, url.pathname); return route.fulfill({ status: 404, json: {} })
+    }
     const table = url.pathname.replace('/rest/v1/', '')
-    if (!['profiles', 'shifts', 'equipes', 'conges', 'notifications', 'modeles_horaires', 'acomptes'].includes(table)) { console.log('NON SIMULÉ', m, url.pathname); return route.fulfill({ status: 404, json: {} }) }
+    if (TABLES_CUISINE.includes(table) && m !== 'GET' && m !== 'HEAD') {
+      const moi = db.profiles.find((p) => p.id === uid)
+      const admin = moi?.role === 'admin' && moi.actif
+      const cuisine = moi?.actif && ['cuisine', 'admin'].includes(moi.role)
+      const refus = () => route.fulfill({ status: 403, json: { code: '42501', message: 'new row violates row-level security policy' } })
+      const lignes = filtrer(visibles(db, table, uid), url.searchParams)
+      const maintenant = new Date().toISOString()
+      if (!cuisine || (table === 'frigos' && !admin) || (table === 'commandes' && m === 'PATCH' && !admin)) return refus()
+      if (m === 'POST') {
+        const l = { id: crypto.randomUUID(), cree_le: maintenant, ...req.postDataJSON() }
+        if (table === 'dlc_produits') Object.assign(l, { ajoute_par: uid, retire_le: null })
+        if (table === 'commandes') { if (l.statut && l.statut !== 'a_commander') return refus(); Object.assign(l, { statut: 'a_commander', demande_par: uid, commande_le: null, recu_le: null }) }
+        if (table === 'releves_temperature') {
+          if (db.releves_temperature.some((r) => r.frigo_id === l.frigo_id && r.jour === l.jour)) return route.fulfill({ status: 409, json: { code: '23505', message: 'duplicate key value violates unique constraint' } })
+          Object.assign(l, { commentaire: null, releve_par: uid, releve_le: maintenant })
+        }
+        if (table === 'frigos' && !(l.temp_min < l.temp_max)) return route.fulfill({ status: 400, json: { code: '23514', message: 'check' } })
+        db[table].push(l); return route.fulfill({ status: 201, body: '' })
+      }
+      if (m === 'PATCH') {
+        const maj = req.postDataJSON()
+        for (const l of lignes) {
+          Object.assign(l, maj)
+          if (table === 'releves_temperature') Object.assign(l, { releve_par: uid, releve_le: maintenant })
+          if (table === 'commandes' && maj.statut === 'commande') l.commande_le ??= maintenant
+          if (table === 'commandes' && maj.statut === 'recu') { l.commande_le ??= maintenant; l.recu_le = maintenant }
+        }
+        return route.fulfill({ status: 204, body: '' })
+      }
+      if (m === 'DELETE') {
+        const ok = table === 'commandes' && !admin ? lignes.filter((l) => l.demande_par === uid && l.statut === 'a_commander') : lignes
+        const ids = new Set(ok.map((l) => l.id)); db[table] = db[table].filter((l) => !ids.has(l.id))
+        return route.fulfill({ status: 204, body: '' })
+      }
+    }
+    if (!['profiles', 'shifts', 'equipes', 'conges', 'notifications', 'modeles_horaires', 'acomptes', ...TABLES_CUISINE].includes(table)) { console.log('NON SIMULÉ', m, url.pathname); return route.fulfill({ status: 404, json: {} }) }
     const lignes = filtrer(visibles(db, table, uid), url.searchParams)
     if (m === 'HEAD') return route.fulfill({ status: 200, headers: { 'content-range': `*/${lignes.length}`, 'access-control-expose-headers': 'content-range' }, body: '' })
     if (m === 'GET') {

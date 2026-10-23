@@ -329,6 +329,65 @@ select test.refuse($$insert into public.acomptes (employe_id, montant, statut)
   values ('00000000-0000-0000-0000-000000000001', 10, 'accepte')$$, 'un employé ne s''accorde pas un acompte');
 reset role;
 
+-- ---------- Espace Cuisine ----------
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('00000000-0000-0000-0000-000000000003', 'chef@test.fr', '{"prenom":"Chloé","nom":"Chef"}');
+update public.profiles set role = 'cuisine' where id = '00000000-0000-0000-0000-000000000003';
+select test.refuse($$update public.profiles set role = 'patron' where id = '00000000-0000-0000-0000-000000000003'$$, 'rôle inconnu refusé');
+
+set role authenticated;
+select test.connecte('00000000-0000-0000-0000-00000000000a');
+insert into public.frigos (nom, temp_min, temp_max, ordre) values ('Frigo 1', 0, 4, 1), ('Congélateur', -25, -18, 2);
+reset role;
+
+set role authenticated;
+select test.connecte('00000000-0000-0000-0000-000000000003');
+insert into public.dlc_produits (nom, ouvert_le, dlc, photo) values ('Crème fraîche', current_date, current_date + 1, 'chef/creme.jpg');
+select test.verifier((select count(*) = 1 and bool_and(ajoute_par = '00000000-0000-0000-0000-000000000003') from public.dlc_produits),
+  'un cuisinier ajoute un produit DLC');
+insert into storage.objects (bucket_id, name) values ('dlc', 'chef/creme.jpg');
+select test.verifier((select count(*) = 1 from storage.objects), 'un cuisinier envoie une photo d''étiquette');
+select test.refuse($$insert into public.frigos (nom) values ('Frigo pirate')$$, 'un cuisinier ne crée pas de frigo');
+insert into public.releves_temperature (frigo_id, temperature) select id, 3.5 from public.frigos where nom = 'Frigo 1';
+select test.verifier((select count(*) = 1 from public.releves_temperature), 'un cuisinier note une température');
+select test.refuse($$insert into public.releves_temperature (frigo_id, temperature) select id, 2 from public.frigos where nom = 'Frigo 1'$$,
+  'un seul relevé par frigo et par jour');
+update public.releves_temperature set temperature = 7.5;
+insert into public.commandes (produit, quantite) values ('Saumon', '3 kg');
+select test.refuse($$insert into public.commandes (produit, statut) values ('Riz', 'recu')$$, 'une commande commence « à commander »');
+select test.refuse($$update public.commandes set statut = 'commande'$$, 'seul l''admin coche « commandé »');
+reset role;
+select test.verifier((select count(*) = 1 from public.notifications where titre = 'Température hors limites' and texte like 'Frigo 1 : 7,5 °C%'),
+  'température hors limites : l''admin est prévenu');
+select test.verifier((select count(*) = 1 from public.notifications where titre = 'À commander' and texte like 'Saumon (3 kg)%'),
+  'produit à commander : l''admin est prévenu');
+
+-- Un employé « normal » ne voit rien de la cuisine.
+update public.profiles set actif = true where id = '00000000-0000-0000-0000-000000000002';
+set role authenticated;
+select test.connecte('00000000-0000-0000-0000-000000000002');
+select test.verifier((select count(*) = 0 from public.dlc_produits) and (select count(*) = 0 from public.frigos)
+  and (select count(*) = 0 from public.commandes) and (select count(*) = 0 from storage.objects),
+  'un employé sans rôle cuisine ne voit ni DLC, ni frigos, ni commandes, ni photos');
+select test.refuse($$insert into public.dlc_produits (nom, dlc) values ('X', current_date)$$, 'un employé n''ajoute pas de DLC');
+reset role;
+
+set role authenticated;
+select test.connecte('00000000-0000-0000-0000-00000000000a');
+update public.commandes set statut = 'commande';
+select test.verifier((select commande_le is not null from public.commandes), 'l''admin coche « commandé » (date notée)');
+update public.commandes set statut = 'recu';
+select test.verifier((select recu_le is not null and commande_le is not null from public.commandes), 'l''admin coche « reçu »');
+reset role;
+
+-- Rappels du jour
+select prive.rappel_dlc();
+select prive.rappel_temperatures();
+select test.verifier((select count(*) = 1 from public.notifications where destinataire_id = '00000000-0000-0000-0000-000000000003'
+  and titre = 'DLC à surveiller' and texte = '1 produit à utiliser aujourd''hui ou demain'), 'rappel DLC envoyé à la cuisine');
+select test.verifier((select count(*) = 1 from public.notifications where destinataire_id = '00000000-0000-0000-0000-000000000003'
+  and titre = 'Températures à relever' and texte = 'Congélateur'), 'rappel des frigos non relevés envoyé à la cuisine');
+
 -- ---------- Compte désactivé ----------
 update public.profiles set actif = false where id = '00000000-0000-0000-0000-000000000002';
 set role authenticated;

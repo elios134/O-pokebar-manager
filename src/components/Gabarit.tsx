@@ -3,10 +3,12 @@ import { NavLink } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { initiales } from '../lib/couleurs'
 import { useEnLigne } from '../lib/horsLigne'
+import { accesCuisine } from '../lib/types'
+import { useAlertesCuisine } from '../lib/useAlertesCuisine'
 import { useDemandesEnAttente } from '../lib/useDemandesEnAttente'
 import { BoutonInstaller } from './pwa/Installation'
 import Cloche from './Cloche'
-import { IconeCalendrier, IconeCompte, IconeEquipe, IconeEuro, IconeSortie, IconeSoleil } from './Icones'
+import { IconeCalendrier, IconeCompte, IconeEquipe, IconeEuro, IconeSortie, IconeSoleil, IconeToque } from './Icones'
 
 interface Lien {
   vers: string
@@ -47,6 +49,8 @@ export default function Gabarit({
   const admin = profil?.role === 'admin'
   const enAttente = useDemandesEnAttente('conges', admin)
   const acomptesEnAttente = useDemandesEnAttente('acomptes', admin)
+  const cuisine = accesCuisine(profil?.role)
+  const alertesCuisine = useAlertesCuisine(cuisine, admin)
   const enLigne = useEnLigne()
 
   const liens: Lien[] = admin
@@ -61,6 +65,7 @@ export default function Gabarit({
         { vers: '/mes-conges', texte: 'Congés', icone: IconeSoleil },
         { vers: '/mes-acomptes', texte: 'Acomptes', icone: IconeEuro },
       ]
+  if (cuisine) liens.push({ vers: '/cuisine', texte: 'Cuisine', icone: IconeToque, badge: alertesCuisine })
 
   return (
     <div className="min-h-dvh pb-20 sm:pb-0">

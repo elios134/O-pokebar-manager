@@ -34,3 +34,11 @@ returns bigint language sql as $$
   insert into net.appels values (url, headers, body);
   select 1::bigint;
 $$;
+
+-- Imitation du stockage de fichiers de Supabase (seulement ce que nos migrations utilisent).
+create schema storage;
+create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
+create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text, owner uuid);
+alter table storage.objects enable row level security;
+grant usage on schema storage to authenticated, anon;
+grant all on storage.objects to authenticated;

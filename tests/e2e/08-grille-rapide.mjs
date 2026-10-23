@@ -37,7 +37,7 @@ db.conges.push({ id: 'c2', employe_id: 'K', debut: jl(4), fin: jl(4), motif: nul
   verif('la grille est la page Planning de l’admin', true)
   verif('demande de congé en attente signalée (pas bloquée)', (await caseDe(page, 'Ana Dupont', 3).getAttribute('aria-label')).includes('demande de congé en attente') && await caseDe(page, 'Ana Dupont', 3).isEnabled())
   const lignes = await page.locator('tbody th[scope="row"]').allInnerTexts()
-  verif('une ligne par employé actif (pas Zoé, désactivée)', lignes.length === 3 && !lignes.join().includes('Zoé'))
+  verif('une ligne par employé actif, cuisine comprise (pas Zoé, désactivée)', lignes.length === 4 && !lignes.join().includes('Zoé'))
   verif('regroupé par équipe', (await page.locator('tbody th[scope="colgroup"]').allInnerTexts()).join('|').toLowerCase() === 'salle|sans équipe')
   verif('horaire existant affiché (9h–17h)', (await caseDe(page, 'Léa Martin', 0).innerText()).includes('9h–17h'))
   verif('pas de case de congé modifiable', await caseDe(page, 'Karim Benali', 4).isDisabled())

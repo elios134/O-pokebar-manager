@@ -7,6 +7,7 @@ import AdminConges from './pages/AdminConges'
 import AdminEmployes from './pages/AdminEmployes'
 import AdminPlanning from './pages/AdminPlanning'
 import Connexion from './pages/Connexion'
+import Cuisine from './pages/Cuisine'
 import Impression from './pages/Impression'
 import MesAcomptes from './pages/MesAcomptes'
 import MesConges from './pages/MesConges'
@@ -28,6 +29,7 @@ function App() {
           <Route path="/mon-compte" element={<Protege><MonCompte /></Protege>} />
           <Route path="/mes-conges" element={<Protege><MesConges /></Protege>} />
           <Route path="/impression" element={<Protege><Impression /></Protege>} />
+          <Route path="/cuisine" element={<Protege cuisine><Cuisine /></Protege>} />
           <Route path="/mes-acomptes" element={<Protege><MesAcomptes /></Protege>} />
           <Route path="/admin/acomptes" element={<Protege admin><AdminAcomptes /></Protege>} />
           <Route path="/admin/conges" element={<Protege admin><AdminConges /></Protege>} />

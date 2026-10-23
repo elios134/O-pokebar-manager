@@ -60,14 +60,14 @@ const BUREAU = { width: 1280, height: 860 }, TEL = { width: 390, height: 844 }
   const db = creerBase(); const { ctx, page } = await ouvrir(db, BUREAU)
   await connecter(page, 'admin@x.fr'); await page.waitForURL('**/admin/planning')
   await page.locator('tbody th[scope="row"]').first().waitFor()
-  verif('admin : grille avec tous les employés actifs', (await page.locator('tbody th[scope="row"]').count()) === 3)
+  verif('admin : grille avec tous les employés actifs (cuisine comprise)', (await page.locator('tbody th[scope="row"]').count()) === 4)
   verif('admin : plus de calendrier', (await page.locator('.fc').count()) === 0)
   await page.screenshot({ path: `${CAP}/web-admin-planning.png` })
 
   // Employés
   await page.getByRole('link', { name: 'Employés' }).click(); await page.waitForURL('**/admin/employes')
   await page.getByText('karim@x.fr').waitFor()
-  verif('employés : liste complète', (await page.locator('main li').count()) === 4)
+  verif('employés : liste complète', (await page.locator('main li').count()) === 5)
   verif('employés : pas de bouton Désactiver sur soi-même', (await page.locator('li', { hasText: '(vous)' }).getByRole('button', { name: 'Désactiver' }).count()) === 0)
   await page.screenshot({ path: `${CAP}/web-employes.png` })
   await page.getByLabel('Rôle de Karim Benali').selectOption('admin'); await page.getByRole('status').waitFor()

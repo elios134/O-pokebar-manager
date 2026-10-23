@@ -9,7 +9,7 @@ import { IconePlus, IconeRecherche } from '../components/Icones'
 import { couleurDe, initiales } from '../lib/couleurs'
 import { gererEmploye } from '../lib/fonctions'
 import { supabase } from '../lib/supabase'
-import { CHAMPS_PROFIL, type Equipe, type Profil, type Role } from '../lib/types'
+import { CHAMPS_PROFIL, NOMS_ROLES, type Equipe, type Profil, type Role } from '../lib/types'
 
 export default function AdminEmployes() {
   const { profil: moi } = useAuth()
@@ -57,7 +57,7 @@ export default function AdminEmployes() {
     const { error } = await supabase.from('profiles').update({ role }).eq('id', p.id)
     setEnCours(null)
     if (error) setMessage({ type: 'erreur', texte: 'Changement de rôle impossible.' })
-    else setMessage({ type: 'ok', texte: `${p.prenom} est maintenant ${role === 'admin' ? 'admin' : 'employé'}.` })
+    else setMessage({ type: 'ok', texte: `${p.prenom} a maintenant le rôle ${NOMS_ROLES[role]}.` })
     void charger()
   }
 
@@ -202,6 +202,7 @@ export default function AdminEmployes() {
                     className="h-11 flex-1 rounded-lg border border-[#C9CCD4] bg-white px-2 text-sm disabled:opacity-60 sm:h-10 sm:flex-none"
                   >
                     <option value="employe">Employé</option>
+                    <option value="cuisine">Cuisine</option>
                     <option value="admin">Admin</option>
                   </select>
                   <button

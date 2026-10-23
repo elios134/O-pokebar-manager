@@ -72,6 +72,7 @@ export default function FenetreCreation({
             Rôle
             <select value={v.role} onChange={(e) => setV({ ...v, role: e.target.value as Role })} className={champ}>
               <option value="employe">Employé</option>
+              <option value="cuisine">Cuisine</option>
               <option value="admin">Admin</option>
             </select>
           </label>
