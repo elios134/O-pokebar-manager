@@ -388,6 +388,139 @@ select test.verifier((select count(*) = 1 from public.notifications where destin
 select test.verifier((select count(*) = 1 from public.notifications where destinataire_id = '00000000-0000-0000-0000-000000000003'
   and titre = 'Températures à relever' and texte = 'Congélateur'), 'rappel des frigos non relevés envoyé à la cuisine');
 
+-- ---------- Arrêts maladie ----------
+-- (Tom, employé, est actif ici ; Chloé est en cuisine)
+set role authenticated;
+select test.connecte('00000000-0000-0000-0000-000000000002');
+insert into public.arrets_maladie (employe_id, debut, fin, message) values ('00000000-0000-0000-0000-000000000002', current_date, current_date + 4, 'papier demain');
+select test.refuse($$insert into public.arrets_maladie (employe_id, debut, fin) values ('00000000-0000-0000-0000-000000000003', current_date, current_date)$$,
+  'un employé ne déclare pas l''arrêt d''un autre');
+insert into public.arrets_maladie (employe_id, debut, fin, recu_le) values ('00000000-0000-0000-0000-000000000002', current_date + 10, current_date + 10, now());
+select test.verifier((select recu_le is null from public.arrets_maladie where debut = current_date + 10), 'un employé ne se marque pas « arrêt reçu »');
+delete from public.arrets_maladie where debut = current_date + 10;
+insert into storage.objects (bucket_id, name) values ('arrets', '00000000-0000-0000-0000-000000000002/arret.jpg');
+select test.refuse($$insert into storage.objects (bucket_id, name) values ('arrets', '00000000-0000-0000-0000-000000000003/x.jpg')$$,
+  'un employé ne dépose pas de fichier dans le dossier d''un autre');
+update public.arrets_maladie set photo = '00000000-0000-0000-0000-000000000002/arret.jpg', fin = current_date + 30, recu_le = now();
+select test.verifier((select photo is not null and fin = current_date + 4 and recu_le is null from public.arrets_maladie),
+  'un employé ajoute la photo de son arrêt, sans changer les dates ni « reçu »');
+reset role;
+select test.verifier((select count(*) = 1 from public.notifications where titre = 'Arrêt maladie' and texte = 'Tom Petit : du ' || to_char(current_date, 'DD/MM') || ' au ' || to_char(current_date + 4, 'DD/MM') || ' (arrêt de travail à venir)'),
+  'arrêt déclaré : l''admin est prévenu');
+select test.verifier((select count(*) = 1 from public.notifications where titre = 'Arrêt de travail ajouté'),
+  'photo de l''arrêt ajoutée : l''admin est prévenu');
+
+set role authenticated;
+select test.connecte('00000000-0000-0000-0000-000000000003');
+select test.verifier((select count(*) = 0 from public.arrets_maladie) and (select count(*) = 0 from storage.objects where bucket_id = 'arrets'),
+  'un collègue (même cuisine) ne voit ni l''arrêt ni sa photo');
+select test.connecte('00000000-0000-0000-0000-00000000000a');
+update public.arrets_maladie set recu_le = now();
+select test.verifier((select recu_par = '00000000-0000-0000-0000-00000000000a' from public.arrets_maladie), 'l''admin coche « arrêt reçu »');
+select test.verifier((select count(*) = 1 from storage.objects where bucket_id = 'arrets'), 'l''admin voit la photo de l''arrêt');
+insert into public.arrets_maladie (employe_id, debut, fin) values ('00000000-0000-0000-0000-000000000003', current_date, current_date);
+reset role;
+select test.verifier((select count(*) = 1 from public.notifications where destinataire_id = '00000000-0000-0000-0000-000000000003'
+  and titre = 'Arrêt maladie enregistré par votre responsable'), 'arrêt saisi par l''admin : l''employé est prévenu');
+set role authenticated;
+select test.connecte('00000000-0000-0000-0000-000000000002');
+select test.refuse($$delete from public.arrets_maladie$$, 'un arrêt déjà reçu ne peut plus être retiré par l''employé');
+reset role;
+
+-- ---------- Compteur de congés ----------
+update public.profiles set conges_depuis = date_trunc('month', current_date - interval '4 months')::date
+  where id = '00000000-0000-0000-0000-000000000002';
+insert into public.conges (employe_id, debut, fin, statut) values
+  ('00000000-0000-0000-0000-000000000002', date '2030-06-03', date '2030-06-09', 'accepte'), -- lundi → dimanche : 6 jours ouvrables
+  ('00000000-0000-0000-0000-000000000002', date '2030-07-01', date '2030-07-02', 'refuse');
+set role authenticated;
+select test.connecte('00000000-0000-0000-0000-00000000000a');
+insert into public.conges_corrections (employe_id, jours, motif) values ('00000000-0000-0000-0000-000000000002', -1.25, 'Maladie 2 semaines');
+select test.verifier((select acquis = 10 and pris = 7 and corrections = -1.25 and restant = 1.75
+  from public.soldes_conges() where employe_id = '00000000-0000-0000-0000-000000000002'),
+  'solde calculé : 4 mois × 2,5 − 7 jours pris (1 + 6) − 1,25 de correction, congé refusé ignoré');
+select test.verifier(prive.jours_ouvrables('2030-06-03', '2030-06-09') = 6, 'une semaine de congé = 6 jours ouvrables (dimanche exclu)');
+select test.verifier((select count(*) >= 3 from public.soldes_conges()), 'l''admin voit les soldes de tous');
+select test.connecte('00000000-0000-0000-0000-000000000002');
+select test.verifier((select count(*) = 1 and bool_and(employe_id = '00000000-0000-0000-0000-000000000002') from public.soldes_conges()),
+  'un employé ne voit que son solde');
+select test.refuse($$insert into public.conges_corrections (employe_id, jours, motif) values ('00000000-0000-0000-0000-000000000002', 10, 'cadeau')$$,
+  'un employé ne corrige pas son solde');
+select test.refuse($$update public.profiles set conges_depuis = '2000-01-01' where id = '00000000-0000-0000-0000-000000000002'$$,
+  'un employé ne change pas la date de départ de son compteur');
+reset role;
+select test.verifier((select count(*) = 1 from public.notifications where titre = 'Solde de congés corrigé' and texte = '-1,25 j · Maladie 2 semaines'),
+  'correction du solde : l''employé est prévenu');
+
+-- ---------- Documents ----------
+set role authenticated;
+select test.connecte('00000000-0000-0000-0000-00000000000a');
+insert into storage.objects (bucket_id, name) values ('documents', '00000000-0000-0000-0000-000000000002/paie-09.pdf');
+insert into public.documents (employe_id, type, titre, mois, chemin)
+  values ('00000000-0000-0000-0000-000000000002', 'paie', 'Fiche de paie · septembre 2026', '2026-09-01', '00000000-0000-0000-0000-000000000002/paie-09.pdf');
+select test.connecte('00000000-0000-0000-0000-000000000003');
+select test.verifier((select count(*) = 0 from public.documents) and (select count(*) = 0 from storage.objects where bucket_id = 'documents'),
+  'un collègue ne voit pas les documents d''un autre');
+select test.connecte('00000000-0000-0000-0000-000000000002');
+select test.verifier((select count(*) = 1 from public.documents) and (select count(*) = 1 from storage.objects where bucket_id = 'documents'),
+  'l''employé voit son document');
+select test.refuse($$insert into storage.objects (bucket_id, name) values ('documents', '00000000-0000-0000-0000-000000000002/faux.pdf')$$,
+  'un employé ne dépose pas de document');
+select test.refuse($$delete from public.documents$$, 'un employé ne supprime pas ses documents');
+select public.document_vu((select id from public.documents));
+select test.verifier((select vu_le is not null from public.documents), 'document ouvert : « vu » noté');
+reset role;
+select test.verifier((select count(*) = 1 from public.notifications where destinataire_id = '00000000-0000-0000-0000-000000000002'
+  and titre = 'Nouveau document' and lien = '/mes-documents'), 'nouveau document : l''employé est prévenu');
+
+-- ---------- Checklists ----------
+set role authenticated;
+select test.connecte('00000000-0000-0000-0000-00000000000a');
+insert into public.checklists (nom, ordre) values ('Fermeture', 1);
+insert into public.checklists (nom, cuisine_seulement, ordre) values ('Cuisine', true, 2);
+insert into public.checklist_taches (checklist_id, texte, ordre) select id, 'Couper le gaz', 1 from public.checklists where nom = 'Fermeture';
+insert into public.checklist_taches (checklist_id, texte, ordre) select id, 'Nettoyer la plancha', 1 from public.checklists where nom = 'Cuisine';
+select test.connecte('00000000-0000-0000-0000-000000000002');
+select test.verifier((select count(*) = 1 from public.checklists) and (select count(*) = 1 from public.checklist_taches),
+  'un employé voit les listes, pas celle réservée à la cuisine');
+select test.refuse($$insert into public.checklist_taches (checklist_id, texte) select id, 'X' from public.checklists$$, 'un employé ne crée pas de tâche');
+insert into public.checklist_coches (tache_id, jour) select id, current_date - 3 from public.checklist_taches;
+select test.verifier((select jour = (now() at time zone 'Europe/Paris')::date and coche_par = '00000000-0000-0000-0000-000000000002' from public.checklist_coches),
+  'un employé coche une tâche (toujours pour aujourd''hui, à son nom)');
+select test.refuse($$insert into public.checklist_coches (tache_id) select id from public.checklist_taches$$, 'une tâche ne se coche qu''une fois par jour');
+select test.refuse($$insert into public.checklist_coches (tache_id) select t.id from public.checklist_taches t
+  join public.checklists c on c.id = t.checklist_id where c.nom = 'Cuisine'$$, 'un employé ne coche pas la liste cuisine');
+select test.connecte('00000000-0000-0000-0000-000000000003');
+insert into public.checklist_coches (tache_id) select t.id from public.checklist_taches t join public.checklists c on c.id = t.checklist_id where c.nom = 'Cuisine';
+select test.refuse($$delete from public.checklist_coches where coche_par = '00000000-0000-0000-0000-000000000002'$$, 'on ne décoche pas la tâche d''un autre');
+select test.verifier((select count(*) >= 3 from public.noms_equipe()), 'les noms de l''équipe sont lisibles pour l''historique');
+select test.connecte('00000000-0000-0000-0000-000000000002');
+delete from public.checklist_coches;
+select test.verifier((select count(*) = 0 from public.checklist_coches), 'un employé décoche sa tâche du jour');
+reset role;
+
+-- ---------- Fournisseurs et livraisons ----------
+set role authenticated;
+select test.connecte('00000000-0000-0000-0000-000000000003');
+insert into public.fournisseurs (nom, telephone, livraison) values ('Metro', '01 02 03 04 05', 'mardi et vendredi');
+update public.fournisseurs set contact = 'Julien';
+select test.refuse($$delete from public.fournisseurs$$, 'seul l''admin supprime un fournisseur');
+insert into public.commandes (produit, fournisseur_id) select 'Riz', id from public.fournisseurs;
+insert into public.livraisons (fournisseur_id, fournisseur, temperature, lot, conforme)
+  select id, 'x', 9.5, 'L1', false from public.fournisseurs;
+select test.verifier((select fournisseur = 'Metro' and recu_par = '00000000-0000-0000-0000-000000000003' from public.livraisons),
+  'livraison enregistrée (nom du fournisseur et cuisinier notés)');
+select test.connecte('00000000-0000-0000-0000-000000000002');
+select test.verifier((select count(*) = 0 from public.fournisseurs) and (select count(*) = 0 from public.livraisons),
+  'un employé ne voit ni fournisseurs ni livraisons');
+select test.connecte('00000000-0000-0000-0000-00000000000a');
+delete from public.fournisseurs;
+select test.verifier((select fournisseur = 'Metro' and fournisseur_id is null from public.livraisons),
+  'fournisseur supprimé : la livraison garde son nom');
+reset role;
+select test.verifier((select count(*) = 1 from public.notifications where titre = 'Livraison non conforme' and texte = 'Metro · 9,5 °C'),
+  'livraison non conforme : l''admin est prévenu');
+
 -- ---------- Compte désactivé ----------
 update public.profiles set actif = false where id = '00000000-0000-0000-0000-000000000002';
 set role authenticated;
