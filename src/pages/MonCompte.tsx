@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import ChampMotDePasse from '../components/ChampMotDePasse'
 import { boutonPrincipal } from '../components/Fenetre'
@@ -27,6 +28,18 @@ export default function MonCompte() {
       .then(({ data }) => setEquipe(data?.nom ?? null))
   }, [profil?.equipe_id])
 
+  // Documents pas encore ouverts.
+  const [nouveaux, setNouveaux] = useState(0)
+  useEffect(() => {
+    if (!profil || !navigator.onLine) return
+    void supabase
+      .from('documents')
+      .select('id', { count: 'exact', head: true })
+      .eq('employe_id', profil.id)
+      .is('vu_le', null)
+      .then(({ count }) => setNouveaux(count ?? 0))
+  }, [profil])
+
   const differents = confirmation !== '' && mdp !== confirmation
 
   async function changer(e: FormEvent) {
@@ -51,6 +64,25 @@ export default function MonCompte() {
 
   return (
     <Gabarit titre="Mon compte">
+      <nav aria-label="Raccourcis" className="mb-4 grid gap-3 sm:grid-cols-2 lg:max-w-2xl">
+        <Link to="/mes-documents" className="flex items-center gap-3 rounded-2xl border border-ligne bg-white p-4 font-bold text-encre hover:bg-fond">
+          <span className="mr-auto">
+            Mes documents
+            <span className="block text-[13px] font-medium text-gris">Fiches de paie, contrat…</span>
+          </span>
+          {nouveaux > 0 && (
+            <span className="rounded-full bg-marque px-2 py-0.5 text-xs font-extrabold text-white">
+              {nouveaux} nouveau{nouveaux > 1 ? 'x' : ''}
+            </span>
+          )}
+        </Link>
+        <Link to="/taches" className="flex items-center gap-3 rounded-2xl border border-ligne bg-white p-4 font-bold text-encre hover:bg-fond">
+          <span className="mr-auto">
+            Checklists
+            <span className="block text-[13px] font-medium text-gris">Ouverture, fermeture…</span>
+          </span>
+        </Link>
+      </nav>
       <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
         <section className="rounded-2xl border border-ligne bg-white p-5">
           <h2 className="mb-3 text-lg font-extrabold">Mes informations</h2>

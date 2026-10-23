@@ -39,6 +39,7 @@ export function useGrille(premierJour: string, nbJours: number) {
   const [existants, setExistants] = useState<Record<string, Creneau[]>>({})
   const [conges, setConges] = useState<Set<string>>(new Set())
   const [demandes, setDemandes] = useState<Set<string>>(new Set())
+  const [maladies, setMaladies] = useState<Set<string>>(new Set())
   const plage = `${premierJour}|${nbJours}`
   const [plageChargee, setPlageChargee] = useState('')
   const [modifs, setModifs] = useState<Record<string, Creneau[]>>({})
@@ -56,7 +57,12 @@ export function useGrille(premierJour: string, nbJours: number) {
           .neq('statut', 'refuse')
           .lte('debut', jours[jours.length - 1])
           .gte('fin', jours[0]),
-      ]).then(([h, c]) => {
+        supabase
+          .from('arrets_maladie')
+          .select('employe_id, debut, fin')
+          .lte('debut', jours[jours.length - 1])
+          .gte('fin', jours[0]),
+      ]).then(([h, c, m]) => {
         if (h.error) return setMessage({ type: 'erreur', texte: 'Impossible de charger le planning. Réessayez.' })
         setExistants(parCase(h.data as Horaire[]))
         // Congés acceptés : cases verrouillées. Demandes en attente : simplement signalées.
@@ -65,8 +71,17 @@ export function useGrille(premierJour: string, nbJours: number) {
         for (const x of (c.data ?? []) as Pick<Conge, 'employe_id' | 'debut' | 'fin' | 'statut'>[]) {
           for (let j = x.debut; j <= x.fin; j = jourSuivant(j)) (x.statut === 'accepte' ? acceptes : enAttente).add(cle(x.employe_id, j))
         }
+        // Arrêts maladie : cases verrouillées aussi.
+        const arrets = new Set<string>()
+        for (const x of (m.data ?? []) as Pick<Conge, 'employe_id' | 'debut' | 'fin'>[]) {
+          for (let j = x.debut; j <= x.fin; j = jourSuivant(j)) {
+            arrets.add(cle(x.employe_id, j))
+            acceptes.add(cle(x.employe_id, j))
+          }
+        }
         setConges(acceptes)
         setDemandes(enAttente)
+        setMaladies(arrets)
         setPlageChargee(plage)
       }),
     [jours, plage],
@@ -138,6 +153,7 @@ export function useGrille(premierJour: string, nbJours: number) {
     contenu,
     estConge: (c: string) => conges.has(c),
     estDemande: (c: string) => demandes.has(c),
+    estMaladie: (c: string) => maladies.has(c),
     estModifiee: (c: string) => c in modifs,
     nbModifs,
     remplir,

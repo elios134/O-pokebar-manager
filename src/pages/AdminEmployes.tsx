@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import FenetreCreation from '../components/employes/FenetreCreation'
+import FenetreDocuments from '../components/employes/FenetreDocuments'
 import FenetreEdition from '../components/employes/FenetreEdition'
 import GestionEquipes from '../components/employes/GestionEquipes'
 import { champ } from '../components/Fenetre'
@@ -19,6 +20,7 @@ export default function AdminEmployes() {
   const [enCours, setEnCours] = useState<string | null>(null)
   const [creation, setCreation] = useState(false)
   const [edition, setEdition] = useState<Profil | null>(null)
+  const [documents, setDocuments] = useState<Profil | null>(null)
   const [equipes, setEquipes] = useState<Equipe[]>([])
   const [filtreEquipe, setFiltreEquipe] = useState('')
 
@@ -212,6 +214,14 @@ export default function AdminEmployes() {
                   >
                     Modifier
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setDocuments(p)}
+                    aria-label={`Documents de ${p.prenom} ${p.nom}`}
+                    className="h-11 flex-1 rounded-lg border border-[#C9CCD4] px-3 text-sm font-semibold hover:bg-fond sm:h-10 sm:flex-none"
+                  >
+                    Documents
+                  </button>
                   {!soiMeme && (
                     <button
                       type="button"
@@ -242,6 +252,8 @@ export default function AdminEmployes() {
           }}
         />
       )}
+
+      {documents && <FenetreDocuments profil={documents} onFermer={() => setDocuments(null)} />}
 
       {creation && (
         <FenetreCreation

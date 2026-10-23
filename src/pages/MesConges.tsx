@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import BadgeStatut from '../components/BadgeStatut'
+import CarteSolde from '../components/conges/CarteSolde'
+import OngletMesArrets from '../components/conges/OngletMesArrets'
+import Onglets from '../components/Onglets'
 import Fenetre, { boutonPrincipal, boutonSecondaire, champ, etiquette } from '../components/Fenetre'
 import Gabarit from '../components/Gabarit'
 import { IconePlus } from '../components/Icones'
@@ -8,11 +12,21 @@ import { formatPeriode, jourLocal, nbJours } from '../lib/dates'
 import { supabase } from '../lib/supabase'
 import { CHAMPS_CONGE, type Conge } from '../lib/types'
 
+const SECTIONS = [
+  { id: 'conges', texte: 'Congés' },
+  { id: 'maladie', texte: 'Arrêts maladie' },
+] as const
+
 export default function MesConges() {
   const { profil } = useAuth()
+  const [params, setParams] = useSearchParams()
+  const section = params.get('onglet') === 'maladie' ? 'maladie' : 'conges'
   const [conges, setConges] = useState<Conge[] | null>(null)
   const [demande, setDemande] = useState(false)
-  const [message, setMessage] = useState<{ type: 'ok' | 'erreur'; texte: string } | null>(null)
+  const [message, setMessage] = useState<{
+    type: 'ok' | 'erreur'
+    texte: string
+  } | null>(null)
 
   const charger = useCallback(
     () =>
@@ -22,7 +36,11 @@ export default function MesConges() {
         .eq('employe_id', profil!.id)
         .order('debut', { ascending: false })
         .then(({ data, error }) => {
-          if (error) setMessage({ type: 'erreur', texte: 'Impossible de charger vos demandes.' })
+          if (error)
+            setMessage({
+              type: 'erreur',
+              texte: 'Impossible de charger vos demandes.',
+            })
           else setConges(data as Conge[])
         }),
     [profil],
@@ -43,63 +61,79 @@ export default function MesConges() {
     <Gabarit
       titre="Mes congés"
       actions={
-        <button
-          type="button"
-          onClick={() => setDemande(true)}
-          className="flex h-11 items-center gap-2 rounded-xl bg-marque px-4 text-sm font-bold text-white hover:bg-marque-fonce sm:text-[15px]"
-        >
-          <IconePlus />
-          Demander un congé
-        </button>
+        section === 'conges' && (
+          <button
+            type="button"
+            onClick={() => setDemande(true)}
+            className="flex h-11 items-center gap-2 rounded-xl bg-marque px-4 text-sm font-bold text-white hover:bg-marque-fonce sm:text-[15px]"
+          >
+            <IconePlus />
+            Demander un congé
+          </button>
+        )
       }
     >
-      {message && (
-        <p
-          role={message.type === 'erreur' ? 'alert' : 'status'}
-          className={`mb-4 rounded-lg px-3 py-2 text-sm ${
-            message.type === 'erreur' ? 'bg-red-50 text-red-800' : 'bg-[#DDF5E6] text-[#145C32]'
-          }`}
-        >
-          {message.texte}
-        </p>
-      )}
-
-      {conges === null ? (
-        <p className="text-gris">Chargement…</p>
-      ) : conges.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[#C9CCD4] bg-white p-8 text-center text-gris">
-          Vous n'avez encore fait aucune demande de congé.
-        </div>
+      <Onglets
+        onglets={SECTIONS}
+        actif={section}
+        onChoisir={(id) => setParams(id === 'conges' ? {} : { onglet: id })}
+        large
+      />
+      {section === 'maladie' ? (
+        <OngletMesArrets employeId={profil!.id} />
       ) : (
-        <ul className="flex flex-col gap-3">
-          {conges.map((c) => (
-            <li key={c.id} className="rounded-2xl border border-ligne bg-white p-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="mr-auto font-bold first-letter:uppercase">{formatPeriode(c.debut, c.fin)}</span>
-                <BadgeStatut statut={c.statut} />
-              </div>
-              <div className="mt-1 text-sm text-gris">
-                {nbJours(c.debut, c.fin)} jour{nbJours(c.debut, c.fin) > 1 ? 's' : ''}
-                {c.motif && ` · ${c.motif}`}
-              </div>
-              {c.reponse && (
-                <div className="mt-2 rounded-lg bg-fond px-3 py-2 text-sm">
-                  <span className="font-semibold">Réponse : </span>
-                  {c.reponse}
-                </div>
-              )}
-              {c.statut === 'en_attente' && (
-                <button
-                  type="button"
-                  onClick={() => void annuler(c)}
-                  className="mt-3 h-10 rounded-lg border border-[#C9CCD4] px-3 text-sm font-semibold hover:bg-fond"
-                >
-                  Annuler la demande
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
+        <>
+          <CarteSolde employeId={profil!.id} />
+          {message && (
+            <p
+              role={message.type === 'erreur' ? 'alert' : 'status'}
+              className={`mb-4 rounded-lg px-3 py-2 text-sm ${
+                message.type === 'erreur' ? 'bg-red-50 text-red-800' : 'bg-[#DDF5E6] text-[#145C32]'
+              }`}
+            >
+              {message.texte}
+            </p>
+          )}
+
+          {conges === null ? (
+            <p className="text-gris">Chargement…</p>
+          ) : conges.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-[#C9CCD4] bg-white p-8 text-center text-gris">
+              Vous n'avez encore fait aucune demande de congé.
+            </div>
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {conges.map((c) => (
+                <li key={c.id} className="rounded-2xl border border-ligne bg-white p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="mr-auto font-bold first-letter:uppercase">{formatPeriode(c.debut, c.fin)}</span>
+                    <BadgeStatut statut={c.statut} />
+                  </div>
+                  <div className="mt-1 text-sm text-gris">
+                    {nbJours(c.debut, c.fin)} jour
+                    {nbJours(c.debut, c.fin) > 1 ? 's' : ''}
+                    {c.motif && ` · ${c.motif}`}
+                  </div>
+                  {c.reponse && (
+                    <div className="mt-2 rounded-lg bg-fond px-3 py-2 text-sm">
+                      <span className="font-semibold">Réponse : </span>
+                      {c.reponse}
+                    </div>
+                  )}
+                  {c.statut === 'en_attente' && (
+                    <button
+                      type="button"
+                      onClick={() => void annuler(c)}
+                      className="mt-3 h-10 rounded-lg border border-[#C9CCD4] px-3 text-sm font-semibold hover:bg-fond"
+                    >
+                      Annuler la demande
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
       )}
 
       {demande && (
@@ -108,7 +142,10 @@ export default function MesConges() {
           onFermer={() => setDemande(false)}
           onEnvoyee={() => {
             setDemande(false)
-            setMessage({ type: 'ok', texte: 'Demande envoyée. Vous verrez ici la réponse de votre responsable.' })
+            setMessage({
+              type: 'ok',
+              texte: 'Demande envoyée. Vous verrez ici la réponse de votre responsable.',
+            })
             void charger()
           }}
         />
@@ -137,11 +174,14 @@ function FenetreDemande({
     e.preventDefault()
     if (!datesValides) return
     setEnvoi(true)
-    const { error } = await supabase
-      .from('conges')
-      .insert({ employe_id: employeId, debut, fin, motif: motif.trim() || null })
+    const { error } = await supabase.from('conges').insert({
+      employe_id: employeId,
+      debut,
+      fin,
+      motif: motif.trim() || null,
+    })
     setEnvoi(false)
-    if (error) return setErreur("Envoi impossible. Vérifiez les dates et réessayez.")
+    if (error) return setErreur('Envoi impossible. Vérifiez les dates et réessayez.')
     onEnvoyee()
   }
 
@@ -164,7 +204,14 @@ function FenetreDemande({
           </label>
           <label className={etiquette}>
             Au (inclus)
-            <input type="date" required min={debut} value={fin} onChange={(e) => setFin(e.target.value)} className={champ} />
+            <input
+              type="date"
+              required
+              min={debut}
+              value={fin}
+              onChange={(e) => setFin(e.target.value)}
+              className={champ}
+            />
           </label>
         </div>
         {datesValides ? (
@@ -172,7 +219,9 @@ function FenetreDemande({
             {nbJours(debut, fin)} jour{nbJours(debut, fin) > 1 ? 's' : ''}
           </p>
         ) : (
-          <p className="-mt-2 text-[13px] font-semibold text-red-800">La date de fin doit être après la date de début.</p>
+          <p className="-mt-2 text-[13px] font-semibold text-red-800">
+            La date de fin doit être après la date de début.
+          </p>
         )}
         <label className={etiquette}>
           Motif (facultatif)

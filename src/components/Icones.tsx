@@ -82,6 +82,12 @@ export const IconeToque = (p: SVGProps<SVGSVGElement>) => (
     <path d="M6 17h12" />
   </Base>
 )
+export const IconeCoche = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <rect x="4" y="4" width="16" height="16" rx="3" />
+    <path d="m8.5 12 2.5 2.5 4.5-5" />
+  </Base>
+)
 export const IconeCompte = (p: SVGProps<SVGSVGElement>) => (
   <Base {...p}>
     <circle cx="12" cy="8" r="4" />

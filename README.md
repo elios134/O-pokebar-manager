@@ -3,16 +3,21 @@
 Site de gestion des plannings des employés (React + TypeScript + Vite + Tailwind + Supabase + FullCalendar).
 
 - **Employé** : voit son planning (semaine, mois, liste), ses heures de la semaine et son prochain service ;
-  demande des congés et des acomptes sur salaire, et suit la réponse.
+  demande des congés et des acomptes sur salaire, et suit la réponse ; voit son solde de congés (calculé tout
+  seul : 2,5 j par mois − congés acceptés ± corrections de l'admin) ; déclare un arrêt maladie avec la photo
+  de l'arrêt de travail ; consulte ses documents (fiches de paie, contrat) ; coche les checklists du jour.
 - **Cuisine** : tout ce que fait un employé, plus l'espace « Cuisine » : DLC des produits ouverts (photo
   de l'étiquette, rappel la veille et le jour même), relevé quotidien de la température des frigos
-  (responsable prévenu si hors limites, rappel à 15 h si oublié) et liste des produits à commander.
+  (responsable prévenu si hors limites, rappel à 15 h si oublié), liste des produits à commander, livraisons
+  (fournisseur, photo du bon, température, n° de lot), fournisseurs, et registre sanitaire en PDF.
 - **Admin** : planning de l'équipe sous forme de grille façon tableur (une ligne par employé, une colonne par
   jour) remplie avec des horaires types (pinceau, sélection, clavier, copie de la semaine précédente, pauses,
   coupures, services de nuit, notes), filtres par équipe et par employé, export PDF. Vue « par employé »
   sur une semaine ou un mois, avec sa semaine type à appliquer en un clic et ses heures comparées au contrat.
   Réponse aux demandes de congé et d'acompte, gestion des comptes et des équipes. Accès à l'espace
   « Cuisine » : création des frigos et de leurs limites, suivi des commandes (« Commandé » puis « Reçu »).
+  Arrêts maladie (« arrêt reçu », retrait des horaires), compteurs de congés (date de départ, corrections),
+  dépôt de documents par employé, création des checklists (jours, réservée cuisine) et leur historique.
 - **PWA** : installable sur téléphone et ordinateur (bouton discret, toujours disponible dans « Mon compte »),
   message « Nouvelle version disponible » lors des mises à jour, dernier planning consultable sans réseau,
   et notifications sur le téléphone (à activer dans « Mon compte » ; sur iPhone, après ajout à l'écran d'accueil).
@@ -29,7 +34,9 @@ Site de gestion des plannings des employés (React + TypeScript + Vite + Tailwin
 - `supabase/functions/envoyer-push` : envoie les notifications sur les téléphones (appelée par la base).
   Ses clés sont dans le coffre de Supabase (Vault : `push_url`, `push_cle`, `push_vapid_publique`,
   `push_vapid_privee`), jamais dans le code.
-- Photos des DLC : stockage privé `dlc` (5 Mo maximum, images), lisible seulement par la cuisine et l'admin.
+- Photos des DLC et des bons de livraison : stockage privé `dlc` (5 Mo maximum, images), cuisine et admin.
+- Arrêts de travail (`arrets`) et documents (`documents`) : stockages privés, 10 Mo maximum, un dossier par
+  employé ; seuls l'employé concerné et l'admin y ont accès.
 - Rappels automatiques (pg_cron) : `cuisine-rappel-dlc` à 7 h UTC et `cuisine-rappel-temperatures` à 13 h UTC.
 - `supabase/functions/gerer-employe` : fonction serveur (créer, désactiver, supprimer un compte, changer
   email ou mot de passe), seule à utiliser la clé secrète.

@@ -9,6 +9,8 @@ export interface CaseGrille {
   creneaux: Creneau[]
   modele?: ModeleHoraire
   conge: boolean
+  /** Jour d'arrêt maladie (verrouillé comme un congé). */
+  maladie?: boolean
   modifiee: boolean
   congeDemande: boolean
   choisie: boolean
@@ -25,7 +27,7 @@ export interface ActionsCase {
 const fmtJourLong = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
 
 function texte(c: CaseGrille) {
-  if (c.conge) return { haut: 'Congé', bas: '' }
+  if (c.conge) return { haut: c.maladie ? 'Maladie' : 'Congé', bas: '' }
   if (c.modele) return { haut: c.modele.code, bas: texteCreneaux(c.creneaux) }
   if (!c.creneaux.length) return { haut: '+', bas: '' }
   const [a, b] = c.creneaux
@@ -88,7 +90,9 @@ export default function Cellule({
   }
 
   const description = c.conge
-    ? 'en congé'
+    ? c.maladie
+      ? 'en arrêt maladie'
+      : 'en congé'
     : c.creneaux.length
       ? `${c.modele ? `${c.modele.nom}, ` : ''}${texteDetaille(c.creneaux)}`
       : 'vide'

@@ -3,6 +3,7 @@ import type FullCalendar from '@fullcalendar/react'
 import { useNavigate } from 'react-router-dom'
 import type { EventSourceFuncArg, EventInput } from '@fullcalendar/core'
 import Calendrier from '../components/Calendrier'
+import CarteChecklists from '../components/checklists/CarteChecklists'
 import FenetreJour from '../components/FenetreJour'
 import Gabarit from '../components/Gabarit'
 import { BandeauNotifications } from '../components/pwa/Notifications'
@@ -12,6 +13,7 @@ import { CHAMPS_CONGE, CHAMPS_HORAIRE, type Conge, type Horaire } from '../lib/t
 import { couleurDe } from '../lib/couleurs'
 import { debutSemaine, dureeHeures, formatHeures, formatJour, heureLocale, jourLocal, jourSuivant, textePause, lienImpression } from '../lib/dates'
 import { garder, relire, texteQuand } from '../lib/horsLigne'
+import { arretEnConge, estArret, type ArretMaladie } from '../lib/rh'
 
 const COULEUR = couleurDe(0)
 
@@ -44,7 +46,7 @@ function mettreDeCote(id: string, horaires: Horaire[], conges: Conge[], de: Date
 function evenements(horaires: Horaire[], conges: Conge[]): EventInput[] {
   const evenementsConges: EventInput[] = conges.map((c) => ({
     id: `conge-${c.id}`,
-    title: c.statut === 'accepte' ? 'Congé' : 'Congé demandé (en attente)',
+    title: estArret(c) ? 'Arrêt maladie' : c.statut === 'accepte' ? 'Congé' : 'Congé demandé (en attente)',
     start: c.debut,
     end: jourSuivant(c.fin),
     allDay: true,
@@ -68,6 +70,12 @@ function evenements(horaires: Horaire[], conges: Conge[]): EventInput[] {
     })),
   ]
 }
+
+/** Arrêts maladie de l'employé sur une période (affichés comme des congés). */
+const arrets = (id: string, de: string, a: string) =>
+  supabase.from('arrets_maladie').select('id, employe_id, debut, fin, cree_le').eq('employe_id', id).lte('debut', a).gte('fin', de)
+const arretsEnConges = (r: { data: unknown }) =>
+  ((r.data ?? []) as Pick<ArretMaladie, 'id' | 'employe_id' | 'debut' | 'fin' | 'cree_le'>[]).map(arretEnConge)
 
 function calculerResume(horaires: Horaire[]): Resume {
   const lundi = debutSemaine(new Date())
@@ -125,7 +133,7 @@ export default function MonPlanning() {
         )
       }
       if (!navigator.onLine) return depuisCopie()
-      const [horaires, conges] = await Promise.all([
+      const [horaires, conges, arretsLus] = await Promise.all([
         supabase
           .from('shifts')
           .select(CHAMPS_HORAIRE)
@@ -140,12 +148,14 @@ export default function MonPlanning() {
           .neq('statut', 'refuse')
           .lte('debut', jourLocal(info.end))
           .gte('fin', jourLocal(info.start)),
+        arrets(profil!.id, jourLocal(info.start), jourLocal(info.end)),
       ])
       if (horaires.error || conges.error) return depuisCopie()
       setErreur(null)
       setGarde(null)
-      mettreDeCote(profil!.id, horaires.data as Horaire[], (conges.data ?? []) as Conge[], info.start, info.end)
-      return evenements(horaires.data as Horaire[], (conges.data ?? []) as Conge[])
+      const tous = [...((conges.data ?? []) as Conge[]), ...arretsEnConges(arretsLus)]
+      mettreDeCote(profil!.id, horaires.data as Horaire[], tous, info.start, info.end)
+      return evenements(horaires.data as Horaire[], tous)
     },
     [profil],
   )
@@ -178,9 +188,10 @@ export default function MonPlanning() {
         .neq('statut', 'refuse')
         .lte('debut', jourLocal(a))
         .gte('fin', jourLocal(de)),
-    ]).then(([horaires, conges]) => {
+      arrets(profil.id, jourLocal(de), jourLocal(a)),
+    ]).then(([horaires, conges, arretsLus]) => {
       if (horaires.error || conges.error) return copie()
-      mettreDeCote(profil.id, horaires.data as Horaire[], (conges.data ?? []) as Conge[], de, a)
+      mettreDeCote(profil.id, horaires.data as Horaire[], [...((conges.data ?? []) as Conge[]), ...arretsEnConges(arretsLus)], de, a)
       setResume(calculerResume(horaires.data as Horaire[]))
     })
   }, [profil])
@@ -263,6 +274,7 @@ export default function MonPlanning() {
               <div className="mt-1 text-sm text-gris">{resume ? 'Aucun service prévu' : '…'}</div>
             )}
           </div>
+          <CarteChecklists />
         </aside>
       </div>
       {detail && <FenetreJour {...detail} onFermer={() => setDetail(null)} />}

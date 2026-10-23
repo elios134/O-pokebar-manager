@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import BadgeStatut from '../components/BadgeStatut'
 import FenetreAjoutConge from '../components/conges/FenetreAjoutConge'
+import OngletArretsAdmin from '../components/conges/OngletArretsAdmin'
+import OngletCompteurs from '../components/conges/OngletCompteurs'
+import Onglets from '../components/Onglets'
 import { champ } from '../components/Fenetre'
 import Gabarit from '../components/Gabarit'
 import { IconePlus } from '../components/Icones'
@@ -12,7 +16,16 @@ import { signalerDemandesModifiees } from '../lib/useDemandesEnAttente'
 
 type Onglet = 'en_attente' | 'traitees'
 
+const SECTIONS = [
+  { id: 'demandes', texte: 'Demandes' },
+  { id: 'maladie', texte: 'Arrêts maladie' },
+  { id: 'compteurs', texte: 'Compteurs' },
+] as const
+type Section = (typeof SECTIONS)[number]['id']
+
 export default function AdminConges() {
+  const [params, setParams] = useSearchParams()
+  const section: Section = SECTIONS.find((x) => x.id === params.get('onglet'))?.id ?? 'demandes'
   const [onglet, setOnglet] = useState<Onglet>('en_attente')
   const [conges, setConges] = useState<Conge[] | null>(null)
   const [profils, setProfils] = useState<Profil[]>([])
@@ -85,76 +98,91 @@ export default function AdminConges() {
 
   return (
     <Gabarit
-      titre="Demandes de congé"
+      titre="Congés"
       actions={
-        <button
-          type="button"
-          onClick={() => setAjout(true)}
-          className="flex h-11 items-center gap-2 rounded-xl bg-marque px-4 text-sm font-bold text-white hover:bg-marque-fonce sm:text-[15px]"
-        >
-          <IconePlus />
-          Ajouter un congé
-        </button>
+        section === 'demandes' && (
+          <button
+            type="button"
+            onClick={() => setAjout(true)}
+            className="flex h-11 items-center gap-2 rounded-xl bg-marque px-4 text-sm font-bold text-white hover:bg-marque-fonce sm:text-[15px]"
+          >
+            <IconePlus />
+            Ajouter un congé
+          </button>
+        )
       }
     >
-      <div role="tablist" className="mb-4 flex w-fit gap-1 rounded-xl bg-[#E8E9EE] p-1">
-        {(
-          [
-            ['en_attente', `En attente${nbAttente ? ` (${nbAttente})` : ''}`],
-            ['traitees', 'Traitées'],
-          ] as const
-        ).map(([id, texte]) => (
-          <button
-            key={id}
-            role="tab"
-            aria-selected={onglet === id}
-            onClick={() => setOnglet(id)}
-            className={`h-10 rounded-lg px-4 text-sm ${
-              onglet === id ? 'bg-white font-bold shadow-sm' : 'font-semibold text-[#4A5060]'
-            }`}
-          >
-            {texte}
-          </button>
-        ))}
-      </div>
-
-      {message && (
-        <p
-          role={message.type === 'erreur' ? 'alert' : 'status'}
-          className={`mb-4 rounded-lg px-3 py-2 text-sm ${
-            message.type === 'erreur' ? 'bg-red-50 text-red-800' : 'bg-[#DDF5E6] text-[#145C32]'
-          }`}
-        >
-          {message.texte}
-        </p>
-      )}
-
-      {conges === null ? (
-        <p className="text-gris">Chargement…</p>
-      ) : visibles.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[#C9CCD4] bg-white p-8 text-center text-gris">
-          {onglet === 'en_attente' ? 'Aucune demande en attente.' : 'Aucune demande traitée pour le moment.'}
-        </div>
+      <Onglets
+        onglets={SECTIONS}
+        actif={section}
+        onChoisir={(id) => setParams(id === 'demandes' ? {} : { onglet: id })}
+      />
+      {section === 'maladie' ? (
+        <OngletArretsAdmin profils={profils} />
+      ) : section === 'compteurs' ? (
+        <OngletCompteurs profils={profils} onProfilsModifies={() => void charger()} />
       ) : (
-        <ul className="grid gap-3 lg:grid-cols-2">
-          {visibles.map((c) => {
-            const p = profils.find((x) => x.id === c.employe_id)
-            const couleur = couleurDe(index.get(c.employe_id) ?? 0)
-            const equipe = equipes.find((e) => e.id === p?.equipe_id)
-            return (
-              <CarteConge
-                key={c.id}
-                conge={c}
-                nom={p ? `${p.prenom} ${p.nom}` : 'Employé'}
-                ini={p ? initiales(p.prenom, p.nom) : '?'}
-                couleur={couleur}
-                equipe={equipe?.nom}
-                horaires={horairesPendant[c.id] ?? 0}
-                onRepondre={repondre}
-              />
-            )
-          })}
-        </ul>
+        <>
+          <div role="tablist" className="mb-4 flex w-fit gap-1 rounded-xl bg-[#E8E9EE] p-1">
+            {(
+              [
+                ['en_attente', `En attente${nbAttente ? ` (${nbAttente})` : ''}`],
+                ['traitees', 'Traitées'],
+              ] as const
+            ).map(([id, texte]) => (
+              <button
+                key={id}
+                role="tab"
+                aria-selected={onglet === id}
+                onClick={() => setOnglet(id)}
+                className={`h-10 rounded-lg px-4 text-sm ${
+                  onglet === id ? 'bg-white font-bold shadow-sm' : 'font-semibold text-[#4A5060]'
+                }`}
+              >
+                {texte}
+              </button>
+            ))}
+          </div>
+
+          {message && (
+            <p
+              role={message.type === 'erreur' ? 'alert' : 'status'}
+              className={`mb-4 rounded-lg px-3 py-2 text-sm ${
+                message.type === 'erreur' ? 'bg-red-50 text-red-800' : 'bg-[#DDF5E6] text-[#145C32]'
+              }`}
+            >
+              {message.texte}
+            </p>
+          )}
+
+          {conges === null ? (
+            <p className="text-gris">Chargement…</p>
+          ) : visibles.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-[#C9CCD4] bg-white p-8 text-center text-gris">
+              {onglet === 'en_attente' ? 'Aucune demande en attente.' : 'Aucune demande traitée pour le moment.'}
+            </div>
+          ) : (
+            <ul className="grid gap-3 lg:grid-cols-2">
+              {visibles.map((c) => {
+                const p = profils.find((x) => x.id === c.employe_id)
+                const couleur = couleurDe(index.get(c.employe_id) ?? 0)
+                const equipe = equipes.find((e) => e.id === p?.equipe_id)
+                return (
+                  <CarteConge
+                    key={c.id}
+                    conge={c}
+                    nom={p ? `${p.prenom} ${p.nom}` : 'Employé'}
+                    ini={p ? initiales(p.prenom, p.nom) : '?'}
+                    couleur={couleur}
+                    equipe={equipe?.nom}
+                    horaires={horairesPendant[c.id] ?? 0}
+                    onRepondre={repondre}
+                  />
+                )
+              })}
+            </ul>
+          )}
+        </>
       )}
 
       {ajout && (

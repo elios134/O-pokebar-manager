@@ -128,6 +128,7 @@ export default function AdminPlanning() {
       creneaux,
       modele: modeleDe(creneaux),
       conge: grille.estConge(c),
+      maladie: grille.estMaladie(c),
       modifiee: grille.estModifiee(c),
       congeDemande: grille.estDemande(c),
       choisie: selection.has(c),

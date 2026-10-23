@@ -11,10 +11,13 @@ import Cuisine from './pages/Cuisine'
 import Impression from './pages/Impression'
 import MesAcomptes from './pages/MesAcomptes'
 import MesConges from './pages/MesConges'
+import MesDocuments from './pages/MesDocuments'
 import MonCompte from './pages/MonCompte'
 import MotDePasseOublie from './pages/MotDePasseOublie'
 import NouveauMotDePasse from './pages/NouveauMotDePasse'
+import Registre from './pages/Registre'
 import MonPlanning from './pages/MonPlanning'
+import Taches from './pages/Taches'
 
 function App() {
   return (
@@ -28,8 +31,11 @@ function App() {
           <Route path="/mon-planning" element={<Protege><MonPlanning /></Protege>} />
           <Route path="/mon-compte" element={<Protege><MonCompte /></Protege>} />
           <Route path="/mes-conges" element={<Protege><MesConges /></Protege>} />
+          <Route path="/mes-documents" element={<Protege><MesDocuments /></Protege>} />
+          <Route path="/taches" element={<Protege><Taches /></Protege>} />
           <Route path="/impression" element={<Protege><Impression /></Protege>} />
           <Route path="/cuisine" element={<Protege cuisine><Cuisine /></Protege>} />
+          <Route path="/cuisine/registre" element={<Protege cuisine><Registre /></Protege>} />
           <Route path="/mes-acomptes" element={<Protege><MesAcomptes /></Protege>} />
           <Route path="/admin/acomptes" element={<Protege admin><AdminAcomptes /></Protege>} />
           <Route path="/admin/conges" element={<Protege admin><AdminConges /></Protege>} />

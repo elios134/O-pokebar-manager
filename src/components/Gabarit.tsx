@@ -8,13 +8,15 @@ import { useAlertesCuisine } from '../lib/useAlertesCuisine'
 import { useDemandesEnAttente } from '../lib/useDemandesEnAttente'
 import { BoutonInstaller } from './pwa/Installation'
 import Cloche from './Cloche'
-import { IconeCalendrier, IconeCompte, IconeEquipe, IconeEuro, IconeSortie, IconeSoleil, IconeToque } from './Icones'
+import { IconeCalendrier, IconeCoche, IconeCompte, IconeEquipe, IconeEuro, IconeSortie, IconeSoleil, IconeToque } from './Icones'
 
 interface Lien {
   vers: string
   texte: string
   icone: (p: SVGProps<SVGSVGElement>) => ReactNode
   badge?: number
+  /** false : pas dans la barre du bas sur téléphone (trop de liens), seulement sur ordinateur. */
+  mobile?: boolean
 }
 
 const lienHaut = ({ isActive }: { isActive: boolean }) =>
@@ -66,6 +68,9 @@ export default function Gabarit({
         { vers: '/mes-acomptes', texte: 'Acomptes', icone: IconeEuro },
       ]
   if (cuisine) liens.push({ vers: '/cuisine', texte: 'Cuisine', icone: IconeToque, badge: alertesCuisine })
+  // Checklists : pour tous. Sur téléphone, l'admin y accède depuis « Compte » (barre du bas déjà pleine).
+  liens.splice(admin ? liens.length : 1, 0, { vers: '/taches', texte: 'Tâches', icone: IconeCoche, mobile: !admin })
+  const liensBas = liens.filter((l) => l.mobile !== false)
 
   return (
     <div className="min-h-dvh pb-20 sm:pb-0">
@@ -134,9 +139,9 @@ export default function Gabarit({
 
       <nav
         className="fixed inset-x-0 bottom-0 z-20 grid h-[72px] border-t border-ligne bg-white pb-2 sm:hidden"
-        style={{ gridTemplateColumns: `repeat(${liens.length + 1}, minmax(0, 1fr))` }}
+        style={{ gridTemplateColumns: `repeat(${liensBas.length + 1}, minmax(0, 1fr))` }}
       >
-        {liens.map((l) => (
+        {liensBas.map((l) => (
           <NavLink key={l.vers} to={l.vers} className={lienBas}>
             <span className="relative">
               <l.icone width={22} height={22} />

@@ -44,8 +44,10 @@ export interface Commande {
   cree_le: string
   commande_le: string | null
   recu_le: string | null
+  fournisseur_id: string | null
 }
-export const CHAMPS_COMMANDE = 'id, produit, quantite, note, statut, demande_par, cree_le, commande_le, recu_le'
+export const CHAMPS_COMMANDE =
+  'id, produit, quantite, note, statut, demande_par, cree_le, commande_le, recu_le, fournisseur_id'
 
 /** Les nombres de la base arrivent parfois en texte : on les remet en nombres. */
 export const enNombre = <T extends object>(ligne: T, champs: (keyof T)[]) => {
@@ -81,3 +83,32 @@ export async function reduirePhoto(fichier: File, cote = 1600): Promise<Blob> {
   image.close()
   return new Promise((ok, ko) => toile.toBlob((b) => (b ? ok(b) : ko(new Error('Photo illisible'))), 'image/jpeg', 0.75))
 }
+
+export interface Fournisseur {
+  id: string
+  nom: string
+  contact: string | null
+  telephone: string | null
+  email: string | null
+  livraison: string | null // jours de livraison, heure limite de commande…
+  produits: string | null
+  note: string | null
+}
+export const CHAMPS_FOURNISSEUR = 'id, nom, contact, telephone, email, livraison, produits, note'
+
+export interface Livraison {
+  id: string
+  fournisseur_id: string | null
+  fournisseur: string
+  recu_le: string
+  temperature: number | null
+  lot: string | null
+  produits: string | null
+  conforme: boolean
+  photo: string | null // bon de livraison, stockage « dlc »
+  recu_par: string | null
+}
+export const CHAMPS_LIVRAISON = 'id, fournisseur_id, fournisseur, recu_le, temperature, lot, produits, conforme, photo, recu_par'
+
+/** Prénom et nom des collègues (pour afficher qui a fait quoi). */
+export type Nom = { id: string; prenom: string; nom: string }

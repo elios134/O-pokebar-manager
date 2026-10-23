@@ -59,7 +59,7 @@ const db = creerBase()
   await d.getByLabel('Produit').fill('Crème fraîche'); await d.getByLabel('DLC').fill(jl(demain))
   await d.getByRole('button', { name: 'Ajouter', exact: true }).click(); await d.waitFor({ state: 'detached' })
   const p = db.dlc_produits[0]
-  verif('DLC enregistrée avec la photo', p?.nom === 'Crème fraîche' && p.dlc === jl(demain) && p.photo && p.photo in db.photos && p.ajoute_par === 'C')
+  verif('DLC enregistrée avec la photo', p?.nom === 'Crème fraîche' && p.dlc === jl(demain) && p.photo && `dlc/${p.photo}` in db.photos && p.ajoute_par === 'C')
   await page.getByText('Crème fraîche', { exact: true }).waitFor()
   verif('DLC : étiquette « Demain »', await page.locator('li', { hasText: 'Crème fraîche' }).getByText('Demain').isVisible())
   const vignette = page.getByRole('button', { name: /Voir la photo de l'étiquette : Crème fraîche/ })

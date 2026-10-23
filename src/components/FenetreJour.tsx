@@ -1,4 +1,5 @@
 import { dateDuJour, dureeHeures, formatHeures, formatJour, heureLocale, textePause } from '../lib/dates'
+import { estArret } from '../lib/rh'
 import type { Conge, Horaire } from '../lib/types'
 import Fenetre, { boutonPrincipal } from './Fenetre'
 
@@ -27,7 +28,7 @@ export default function FenetreJour({
               c.statut === 'accepte' ? 'bg-[#DCEBFF] text-[#1E4E8C]' : 'border border-dashed border-[#3B76C4] text-[#1E4E8C]'
             }`}
           >
-            <div className="font-bold">{c.statut === 'accepte' ? 'Congé' : 'Congé demandé (en attente de réponse)'}</div>
+            <div className="font-bold">{estArret(c) ? 'Arrêt maladie' : c.statut === 'accepte' ? 'Congé' : 'Congé demandé (en attente de réponse)'}</div>
             {c.motif && <div>{c.motif}</div>}
           </div>
         ))}
