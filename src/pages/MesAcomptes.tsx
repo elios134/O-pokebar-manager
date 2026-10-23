@@ -4,7 +4,7 @@ import BadgeStatut from '../components/BadgeStatut'
 import Fenetre, { boutonPrincipal, boutonSecondaire, champ, etiquette } from '../components/Fenetre'
 import Gabarit from '../components/Gabarit'
 import { IconePlus } from '../components/Icones'
-import { euros } from '../lib/dates'
+import { euros, lireMontant } from '../lib/dates'
 import { supabase } from '../lib/supabase'
 import { CHAMPS_ACOMPTE, type Acompte } from '../lib/types'
 
@@ -132,8 +132,7 @@ function FenetreDemande({ employeId, onFermer, onEnvoyee }: { employeId: string;
   const [motif, setMotif] = useState('')
   const [erreur, setErreur] = useState<string | null>(null)
   const [envoi, setEnvoi] = useState(false)
-  // Virgule ou point acceptés (« 80,50 » ou « 80.50 »).
-  const valeur = /^\d+([.,]\d{1,2})?$/.test(montant.trim()) ? Number(montant.trim().replace(',', '.')) : 0
+  const valeur = lireMontant(montant)
   const valide = valeur > 0 && valeur <= 10000
 
   async function envoyer(e: FormEvent) {

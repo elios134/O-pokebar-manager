@@ -78,6 +78,24 @@ const db = creerBase()
   await ctx.close()
 }
 
+// ---------- Admin : acompte saisi à la main ----------
+{
+  const { ctx, page } = await ouvrir(db, { width: 1280, height: 900 })
+  await connecter(page, 'admin@x.fr'); await page.waitForURL('**/admin/planning')
+  await page.goto(B + '/admin/acomptes')
+  await page.getByRole('button', { name: 'Ajouter un acompte' }).click()
+  const f = page.getByRole('dialog', { name: 'Ajouter un acompte' })
+  await f.getByLabel('Employé').selectOption({ label: 'Karim Benali' })
+  await f.getByLabel('Montant (€)').fill('60,5'); await f.getByLabel('Motif (facultatif)').fill('Avance en liquide')
+  await page.screenshot({ path: `${CAP}/web-ajout-acompte-admin.png` })
+  await f.getByRole('button', { name: "Enregistrer l'acompte" }).click(); await f.waitFor({ state: 'detached' })
+  const a = db.acomptes.find((x) => x.motif === 'Avance en liquide')
+  verif('acompte saisi par l’admin : enregistré et accepté', a && a.employe_id === 'K' && a.montant === 60.5 && a.statut === 'accepte')
+  verif('message de confirmation', (await page.getByRole('status').innerText()).includes('Acompte de Karim enregistré.'))
+  verif('affiché dans « Traitées »', (await page.getByRole('tab', { name: 'Traitées' }).getAttribute('aria-selected')) === 'true' && (await page.locator('main li', { hasText: 'Avance en liquide' }).count()) === 1)
+  await ctx.close()
+}
+
 await browser.close()
 console.log(`\n${ok} ok, ${ko} échec(s)`)
 process.exitCode = ko ? 1 : 0

@@ -311,6 +311,24 @@ reset role;
 select test.verifier((select count(*) > 0 from public.notifications where destinataire_id <> '00000000-0000-0000-0000-000000000001'),
   'les notifications des autres ne sont pas effacées');
 
+-- ---------- Acompte saisi par l'admin ----------
+set role authenticated;
+select test.connecte('00000000-0000-0000-0000-00000000000a');
+insert into public.acomptes (employe_id, montant, motif, statut)
+  values ('00000000-0000-0000-0000-000000000002', 60, 'Avance en liquide', 'accepte');
+select test.verifier((select traite_par = '00000000-0000-0000-0000-00000000000a' and traite_le is not null
+  from public.acomptes where motif = 'Avance en liquide'), 'l''admin saisit un acompte déjà accepté, signé de son nom');
+reset role;
+select test.verifier((select count(*) = 1 from public.notifications where destinataire_id = '00000000-0000-0000-0000-000000000002'
+  and titre = 'Acompte ajouté par votre responsable' and texte = '60,00 € · Avance en liquide'), 'l''employé est prévenu de l''acompte saisi');
+set role authenticated;
+select test.connecte('00000000-0000-0000-0000-000000000001');
+select test.refuse($$insert into public.acomptes (employe_id, montant, statut)
+  values ('00000000-0000-0000-0000-000000000002', 10, 'accepte')$$, 'un employé ne saisit pas d''acompte pour un autre');
+select test.refuse($$insert into public.acomptes (employe_id, montant, statut)
+  values ('00000000-0000-0000-0000-000000000001', 10, 'accepte')$$, 'un employé ne s''accorde pas un acompte');
+reset role;
+
 -- ---------- Compte désactivé ----------
 update public.profiles set actif = false where id = '00000000-0000-0000-0000-000000000002';
 set role authenticated;

@@ -103,3 +103,7 @@ export function numeroSemaine(d: Date) {
 const fmtEuros = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
 /** "150,00 €" */
 export const euros = (montant: number | string) => fmtEuros.format(Number(montant))
+
+/** "80,50" ou "80.50" → 80.5 ; 0 si la saisie n'est pas un montant valide (2 décimales au plus). */
+export const lireMontant = (saisie: string) =>
+  /^\d+([.,]\d{1,2})?$/.test(saisie.trim()) ? Number(saisie.trim().replace(',', '.')) : 0
