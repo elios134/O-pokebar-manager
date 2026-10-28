@@ -1,0 +1,12 @@
+# Cloudflare Pages : les fichiers de l'application installée (PWA) doivent toujours être relus,
+# sinon les téléphones gardent une ancienne version.
+/sw.js
+  Cache-Control: no-cache
+/push-sw.js
+  Cache-Control: no-cache
+/manifest.webmanifest
+  Cache-Control: no-cache
+
+# Les fichiers construits portent un nom unique à chaque version : on peut les garder longtemps.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
