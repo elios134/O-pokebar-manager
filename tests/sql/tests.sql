@@ -436,9 +436,12 @@ insert into public.conges (employe_id, debut, fin, statut) values
 set role authenticated;
 select test.connecte('00000000-0000-0000-0000-00000000000a');
 insert into public.conges_corrections (employe_id, jours, motif) values ('00000000-0000-0000-0000-000000000002', -1.25, 'Maladie 2 semaines');
-select test.verifier((select acquis = 10 and pris = 7 and corrections = -1.25 and restant = 1.75
+-- (Tom a déjà un congé accepté plus haut, dont le nombre de jours ouvrables dépend du jour où le test tourne.)
+select test.verifier((select acquis = 10 and corrections = -1.25 and restant = acquis - pris + corrections
+    and pris = 6 + (select coalesce(sum(prive.jours_ouvrables(c.debut, c.fin)), 0) from public.conges c
+      where c.employe_id = '00000000-0000-0000-0000-000000000002' and c.statut = 'accepte' and c.debut < '2030-01-01')
   from public.soldes_conges() where employe_id = '00000000-0000-0000-0000-000000000002'),
-  'solde calculé : 4 mois × 2,5 − 7 jours pris (1 + 6) − 1,25 de correction, congé refusé ignoré');
+  'solde calculé : 4 mois × 2,5 − jours pris (dont 6 pour une semaine) − 1,25 de correction, congé refusé ignoré');
 select test.verifier(prive.jours_ouvrables('2030-06-03', '2030-06-09') = 6, 'une semaine de congé = 6 jours ouvrables (dimanche exclu)');
 select test.verifier((select count(*) >= 3 from public.soldes_conges()), 'l''admin voit les soldes de tous');
 select test.connecte('00000000-0000-0000-0000-000000000002');
@@ -520,6 +523,32 @@ select test.verifier((select fournisseur = 'Metro' and fournisseur_id is null fr
 reset role;
 select test.verifier((select count(*) = 1 from public.notifications where titre = 'Livraison non conforme' and texte = 'Metro · 9,5 °C'),
   'livraison non conforme : l''admin est prévenu');
+
+-- ---------- Équipe du jour ----------
+-- Léa et Tom dans l'équipe « Cuisine » ; Chloé dans l'équipe « Salle ».
+insert into public.equipes (nom) values ('Salle');
+update public.profiles set equipe_id = (select id from public.equipes where nom = 'Cuisine')
+  where id in ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002');
+update public.profiles set equipe_id = (select id from public.equipes where nom = 'Salle')
+  where id = '00000000-0000-0000-0000-000000000003';
+insert into public.shifts (employe_id, debut, fin) values
+  ('00000000-0000-0000-0000-000000000002', (current_date + 20)::timestamp + time '09:00', (current_date + 20)::timestamp + time '17:00'),
+  ('00000000-0000-0000-0000-000000000003', (current_date + 20)::timestamp + time '11:00', (current_date + 20)::timestamp + time '15:00');
+set role authenticated;
+select test.connecte('00000000-0000-0000-0000-000000000001');
+select test.verifier((select count(*) = 1 and bool_and(prenom = 'Tom') from public.equipe_du_jour(current_date + 20)),
+  'équipe du jour : Léa voit Tom (même équipe), pas Chloé (autre équipe)');
+select test.connecte('00000000-0000-0000-0000-000000000003');
+select test.verifier((select count(*) = 1 and bool_and(prenom = 'Chloé') from public.equipe_du_jour(current_date + 20)),
+  'équipe du jour : Chloé ne voit que son équipe');
+select test.connecte('00000000-0000-0000-0000-00000000000a');
+select test.verifier((select count(*) = 0 from public.equipe_du_jour(current_date + 20)),
+  'équipe du jour : sans équipe, on ne voit personne');
+reset role;
+set role anon;
+select test.connecte(null);
+select test.refuse($$select * from public.equipe_du_jour(current_date)$$, 'équipe du jour : refusé sans connexion');
+reset role;
 
 -- ---------- Compte désactivé ----------
 update public.profiles set actif = false where id = '00000000-0000-0000-0000-000000000002';

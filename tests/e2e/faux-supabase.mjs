@@ -219,6 +219,15 @@ export async function brancher(page, db) {
         db.abonnements = (db.abonnements ?? []).filter((x) => !(x.endpoint === a.p_endpoint && x.profil_id === uid))
         return route.fulfill({ status: 204, body: '' })
       }
+      if (nom === 'equipe_du_jour') {
+        if (!moi?.actif || !moi.equipe_id) return route.fulfill({ json: [] })
+        const membres = db.profiles.filter((p) => p.actif && p.equipe_id === moi.equipe_id)
+        const lignes = db.shifts
+          .filter((x) => membres.some((p) => p.id === x.employe_id) && jourLocalMock(new Date(x.debut)) === a.p_jour)
+          .sort((x, y) => x.debut.localeCompare(y.debut))
+          .map((x) => { const p = membres.find((q) => q.id === x.employe_id); return { employe_id: p.id, prenom: p.prenom, nom: p.nom, debut: x.debut, fin: x.fin } })
+        return route.fulfill({ json: lignes })
+      }
       if (nom === 'soldes_conges') return route.fulfill({ json: soldes(db, uid) })
       if (nom === 'noms_equipe') return route.fulfill({ json: moi?.actif ? db.profiles.map(({ id, prenom, nom: n }) => ({ id, prenom, nom: n })) : [] })
       if (nom === 'document_vu') {

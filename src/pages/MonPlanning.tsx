@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import type { EventSourceFuncArg, EventInput } from '@fullcalendar/core'
 import Calendrier from '../components/Calendrier'
 import CarteChecklists from '../components/checklists/CarteChecklists'
+import FenetreEquipeDuJour from '../components/FenetreEquipeDuJour'
 import FenetreJour from '../components/FenetreJour'
 import Gabarit from '../components/Gabarit'
 import { BandeauNotifications } from '../components/pwa/Notifications'
@@ -115,6 +116,7 @@ export default function MonPlanning() {
   }
   const calendrier = useRef<FullCalendar>(null)
   const naviguer = useNavigate()
+  const [equipe, setEquipe] = useState(false)
 
   const chargerEvenements = useCallback(
     async (info: EventSourceFuncArg): Promise<EventInput[]> => {
@@ -200,20 +202,29 @@ export default function MonPlanning() {
     <Gabarit
       titre="Mon planning"
       actions={
-        <button
-          type="button"
-          onClick={() => {
-            const api = calendrier.current?.getApi()
-            naviguer(
-              lienImpression(api?.getDate() ?? new Date(), {
-                periode: api?.view.type === 'dayGridMonth' ? 'mois' : 'semaine',
-              }),
-            )
-          }}
-          className="flex h-11 items-center rounded-xl border border-[#C9CCD4] bg-white px-4 font-semibold hover:bg-fond"
-        >
-          Exporter en PDF
-        </button>
+        <>
+          <button
+            type="button"
+            onClick={() => setEquipe(true)}
+            className="flex h-11 items-center rounded-xl bg-marque px-4 font-bold text-white hover:bg-marque-fonce"
+          >
+            Voir l'équipe du jour
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const api = calendrier.current?.getApi()
+              naviguer(
+                lienImpression(api?.getDate() ?? new Date(), {
+                  periode: api?.view.type === 'dayGridMonth' ? 'mois' : 'semaine',
+                }),
+              )
+            }}
+            className="flex h-11 items-center rounded-xl border border-[#C9CCD4] bg-white px-4 font-semibold hover:bg-fond"
+          >
+            Exporter en PDF
+          </button>
+        </>
       }
     >
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
@@ -278,6 +289,7 @@ export default function MonPlanning() {
         </aside>
       </div>
       {detail && <FenetreJour {...detail} onFermer={() => setDetail(null)} />}
+      {equipe && <FenetreEquipeDuJour onFermer={() => setEquipe(false)} />}
     </Gabarit>
   )
 }
