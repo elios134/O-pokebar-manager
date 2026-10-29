@@ -93,12 +93,12 @@ function joursOuvrables(debut, fin) {
   return n
 }
 
-// Comme public.soldes_conges() : l'admin voit tout le monde, un employé seulement lui.
+// Comme public.soldes_conges() : réservé à l'admin.
 function soldes(db, uid) {
   const moi = db.profiles.find((p) => p.id === uid)
   const admin = moi?.role === 'admin' && moi.actif
   const auj = new Date()
-  return db.profiles.filter((p) => admin || (p.id === uid && p.actif)).map((p) => {
+  return db.profiles.filter(() => admin).map((p) => {
     const depuis = p.conges_depuis ?? jourLocalMock(auj)
     const [a, mo] = depuis.split('-').map(Number)
     const acquis = 2.5 * Math.max(0, auj.getFullYear() * 12 + auj.getMonth() + 1 - (a * 12 + mo))

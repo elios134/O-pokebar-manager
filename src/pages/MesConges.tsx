@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import BadgeStatut from '../components/BadgeStatut'
-import CarteSolde from '../components/conges/CarteSolde'
 import OngletMesArrets from '../components/conges/OngletMesArrets'
 import Onglets from '../components/Onglets'
 import Fenetre, { boutonPrincipal, boutonSecondaire, champ, etiquette } from '../components/Fenetre'
@@ -83,7 +82,6 @@ export default function MesConges() {
         <OngletMesArrets employeId={profil!.id} />
       ) : (
         <>
-          <CarteSolde employeId={profil!.id} />
           {message && (
             <p
               role={message.type === 'erreur' ? 'alert' : 'status'}
