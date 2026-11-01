@@ -220,7 +220,10 @@ export async function brancher(page, db) {
         return route.fulfill({ status: 204, body: '' })
       }
       if (nom === 'equipe_du_jour') {
-        if (!moi?.actif || !moi.equipe_id) return route.fulfill({ json: [] })
+        // Comme en base : aujourd'hui ou demain seulement, et seulement si je travaille ce jour-là.
+        const j0 = jourLocalMock(new Date()), j1 = jourLocalMock(new Date(Date.now() + 86_400_000))
+        const jeTravaille = db.shifts.some((x) => x.employe_id === uid && jourLocalMock(new Date(x.debut)) === a.p_jour)
+        if (!moi?.actif || !moi.equipe_id || ![j0, j1].includes(a.p_jour) || !jeTravaille) return route.fulfill({ json: [] })
         const membres = db.profiles.filter((p) => p.actif && p.equipe_id === moi.equipe_id)
         const lignes = db.shifts
           .filter((x) => membres.some((p) => p.id === x.employe_id) && jourLocalMock(new Date(x.debut)) === a.p_jour)

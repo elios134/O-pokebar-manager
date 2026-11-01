@@ -37,12 +37,10 @@ db.shifts.push(horaire('t1', 'K', 0, 11, 15), horaire('t2', 'L', 0, 9, 17), hora
   verif('équipe du jour : Léa (vous) et Karim, par heure de début', /Léa Martin[\s\S]*09:00[\s\S]*Karim Benali[\s\S]*11:00/.test(texte) && texte.includes('(vous)'))
   verif('équipe du jour : Chloé (autre équipe) n’apparaît pas', !texte.includes('Chloé'))
   await page.screenshot({ path: `${CAP}/equipe-du-jour.png` })
-  await f.getByRole('button', { name: 'Jour suivant' }).click()
-  await f.getByRole('list', { name: 'Équipe du jour : Demain' }).waitFor()
-  const demain = await f.getByRole('list', { name: 'Équipe du jour : Demain' }).innerText()
-  verif('demain : seulement Karim à 18:00', demain.includes('Karim') && demain.includes('18:00') && !demain.includes('Léa'))
-  await f.getByRole('button', { name: 'Jour suivant' }).click()
-  verif('jour sans personne : message clair', await f.getByText("Personne de l'équipe ne travaille ce jour-là.").waitFor({ timeout: 3000 }).then(() => true, () => false))
+  verif('seulement « Aujourd’hui » et « Demain »', (await f.getByRole('tab').count()) === 2 && (await f.getByRole('button', { name: /Jour (précédent|suivant)/ }).count()) === 0)
+  await f.getByRole('tab', { name: 'Demain' }).click()
+  verif('demain : Léa ne travaille pas, elle ne voit pas l’équipe', await f.getByText(/Vous ne travaillez pas demain/).waitFor({ timeout: 3000 }).then(() => true, () => false))
+  verif('demain : Karim n’apparaît pas', (await f.getByText('Karim Benali').count()) === 0)
   await ctx.close()
 }
 
@@ -54,6 +52,17 @@ db.shifts.push(horaire('t1', 'K', 0, 11, 15), horaire('t2', 'L', 0, 9, 17), hora
   await liste.waitFor()
   const texte = await liste.innerText()
   verif('Chloé ne voit que son équipe', texte.includes('Chloé') && !texte.includes('Léa') && !texte.includes('Karim'))
+  await ctx.close()
+}
+
+{
+  const { ctx, page } = await ouvrir(db, TEL)
+  await connecter(page, 'karim@x.fr'); await page.waitForURL('**/mon-planning')
+  await page.getByRole('button', { name: "Voir l'équipe du jour" }).click()
+  const f = page.getByRole('dialog', { name: 'Équipe Salle' })
+  await f.getByRole('tab', { name: 'Demain' }).click()
+  const liste = f.getByRole('list', { name: 'Équipe du jour : Demain' })
+  verif('Karim voit demain (il y travaille) : lui seul, 18:00', await liste.waitFor({ timeout: 3000 }).then(() => true, () => false) && /Karim Benali[\s\S]*18:00/.test(await liste.innerText()))
   await ctx.close()
 }
 

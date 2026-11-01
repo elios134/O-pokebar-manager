@@ -531,18 +531,38 @@ update public.profiles set equipe_id = (select id from public.equipes where nom 
   where id in ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002');
 update public.profiles set equipe_id = (select id from public.equipes where nom = 'Salle')
   where id = '00000000-0000-0000-0000-000000000003';
-insert into public.shifts (employe_id, debut, fin) values
-  ('00000000-0000-0000-0000-000000000002', (current_date + 20)::timestamp + time '09:00', (current_date + 20)::timestamp + time '17:00'),
-  ('00000000-0000-0000-0000-000000000003', (current_date + 20)::timestamp + time '11:00', (current_date + 20)::timestamp + time '15:00');
+-- Aujourd'hui (Paris) : Léa, Tom et Chloé travaillent. Demain : Tom seulement. Dans 20 jours : Léa et Tom.
+create temp table jours_test as select (now() at time zone 'Europe/Paris')::date as j0;
+grant select on jours_test to authenticated;
+-- (on repart sans les horaires laissés par les tests plus haut sur ces jours-là)
+delete from public.shifts where (debut at time zone 'Europe/Paris')::date in
+  ((select j0 from jours_test), (select j0 from jours_test) + 1, (select j0 from jours_test) + 20);
+insert into public.shifts (employe_id, debut, fin)
+  select e, ((select j0 from jours_test) + d)::timestamp at time zone 'Europe/Paris' + h,
+            ((select j0 from jours_test) + d)::timestamp at time zone 'Europe/Paris' + h + interval '4 hours'
+  from (values
+    ('00000000-0000-0000-0000-000000000001'::uuid, 0, interval '9 hours'),
+    ('00000000-0000-0000-0000-000000000002'::uuid, 0, interval '11 hours'),
+    ('00000000-0000-0000-0000-000000000003'::uuid, 0, interval '10 hours'),
+    ('00000000-0000-0000-0000-000000000002'::uuid, 1, interval '18 hours'),
+    ('00000000-0000-0000-0000-000000000001'::uuid, 20, interval '9 hours'),
+    ('00000000-0000-0000-0000-000000000002'::uuid, 20, interval '9 hours')) v(e, d, h);
 set role authenticated;
 select test.connecte('00000000-0000-0000-0000-000000000001');
-select test.verifier((select count(*) = 1 and bool_and(prenom = 'Tom') from public.equipe_du_jour(current_date + 20)),
-  'équipe du jour : Léa voit Tom (même équipe), pas Chloé (autre équipe)');
+select test.verifier((select count(*) = 2 and bool_and(prenom in ('Léa', 'Tom')) from public.equipe_du_jour((select j0 from jours_test))),
+  'équipe du jour : Léa voit son équipe (elle et Tom), pas Chloé (autre équipe)');
+select test.verifier((select count(*) = 0 from public.equipe_du_jour((select j0 from jours_test) + 1)),
+  'équipe du jour : Léa ne voit rien demain, elle ne travaille pas');
+select test.verifier((select count(*) = 0 from public.equipe_du_jour((select j0 from jours_test) + 20)),
+  'équipe du jour : rien au-delà de demain, même si elle travaille');
+select test.connecte('00000000-0000-0000-0000-000000000002');
+select test.verifier((select count(*) = 1 and bool_and(prenom = 'Tom') from public.equipe_du_jour((select j0 from jours_test) + 1)),
+  'équipe du jour : Tom voit demain (il y travaille)');
 select test.connecte('00000000-0000-0000-0000-000000000003');
-select test.verifier((select count(*) = 1 and bool_and(prenom = 'Chloé') from public.equipe_du_jour(current_date + 20)),
+select test.verifier((select count(*) = 1 and bool_and(prenom = 'Chloé') from public.equipe_du_jour((select j0 from jours_test))),
   'équipe du jour : Chloé ne voit que son équipe');
 select test.connecte('00000000-0000-0000-0000-00000000000a');
-select test.verifier((select count(*) = 0 from public.equipe_du_jour(current_date + 20)),
+select test.verifier((select count(*) = 0 from public.equipe_du_jour((select j0 from jours_test))),
   'équipe du jour : sans équipe, on ne voit personne');
 reset role;
 set role anon;

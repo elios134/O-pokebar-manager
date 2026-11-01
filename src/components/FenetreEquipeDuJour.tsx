@@ -16,21 +16,19 @@ interface Present {
 
 const fmtJour = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
 
-/** Jour précédent au format "2026-10-27". */
-function jourPrecedent(jour: string) {
-  const d = dateDuJour(jour)
-  d.setDate(d.getDate() - 1)
-  return jourLocal(d)
-}
-
-/** Qui de mon équipe travaille ce jour-là, avec les heures (jamais les autres équipes). */
+/**
+ * Qui de mon équipe travaille aujourd'hui ou demain, avec les heures (jamais les autres équipes).
+ * Visible seulement les jours où je travaille moi-même (la base applique la même règle).
+ */
 export default function FenetreEquipeDuJour({ onFermer }: { onFermer: () => void }) {
   const { profil } = useAuth()
   const enLigne = useEnLigne()
   const [aujourdhui] = useState(() => jourLocal(new Date()))
   const [jour, setJour] = useState(aujourdhui)
   const [equipe, setEquipe] = useState<string | null>(null)
-  const [resultat, setResultat] = useState<{ jour: string; presents: Present[] | null } | null>(null)
+  // presents = null : erreur ; « repos » : je ne travaille pas ce jour-là.
+  const [resultat, setResultat] = useState<{ jour: string; presents: Present[] | null | 'repos' } | null>(null)
+  const demain = jourSuivant(aujourdhui)
 
   useEffect(() => {
     if (!profil?.equipe_id) return
@@ -45,19 +43,29 @@ export default function FenetreEquipeDuJour({ onFermer }: { onFermer: () => void
   useEffect(() => {
     if (!profil?.equipe_id || !enLigne) return
     let annule = false
-    void supabase.rpc('equipe_du_jour', { p_jour: jour }).then(({ data, error }) => {
+    void (async () => {
+      // Est-ce que je travaille ce jour-là ?
+      const { count, error: e1 } = await supabase
+        .from('shifts')
+        .select('id', { count: 'exact', head: true })
+        .eq('employe_id', profil.id)
+        .gte('debut', dateDuJour(jour).toISOString())
+        .lt('debut', dateDuJour(jourSuivant(jour)).toISOString())
+      if (annule) return
+      if (e1) return setResultat({ jour, presents: null })
+      if (!count) return setResultat({ jour, presents: 'repos' })
+      const { data, error } = await supabase.rpc('equipe_du_jour', { p_jour: jour })
       if (!annule) setResultat({ jour, presents: error ? null : (data as Present[]) })
-    })
+    })()
     return () => {
       annule = true
     }
-  }, [jour, profil?.equipe_id, enLigne])
+  }, [jour, profil?.id, profil?.equipe_id, enLigne])
 
   const presents = resultat?.jour === jour ? resultat.presents : undefined
-  const titreJour =
-    jour === aujourdhui ? "Aujourd'hui" : jour === jourSuivant(aujourdhui) ? 'Demain' : fmtJour.format(dateDuJour(jour))
+  const titreJour = jour === aujourdhui ? "Aujourd'hui" : 'Demain'
   // Une couleur par personne, toujours la même dans la liste.
-  const ordre = [...new Set((presents ?? []).map((p) => p.employe_id))]
+  const ordre = Array.isArray(presents) ? [...new Set(presents.map((p) => p.employe_id))] : []
 
   return (
     <Fenetre titre={equipe ? `Équipe ${equipe}` : 'Mon équipe'} onFermer={onFermer}>
@@ -67,36 +75,24 @@ export default function FenetreEquipeDuJour({ onFermer }: { onFermer: () => void
         </p>
       ) : (
         <>
-          <div className="mb-4 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setJour(jourPrecedent(jour))}
-              aria-label="Jour précédent"
-              className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-[#C9CCD4] bg-white text-lg"
-            >
-              ‹
-            </button>
-            <div className="flex-1 text-center">
-              <div className="font-extrabold first-letter:uppercase">{titreJour}</div>
-              {jour !== aujourdhui && (
-                <button
-                  type="button"
-                  onClick={() => setJour(aujourdhui)}
-                  className="text-xs font-bold text-marque-fonce"
-                >
-                  Revenir à aujourd'hui
-                </button>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => setJour(jourSuivant(jour))}
-              aria-label="Jour suivant"
-              className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-[#C9CCD4] bg-white text-lg"
-            >
-              ›
-            </button>
+          <div role="tablist" aria-label="Jour" className="mb-2 flex gap-1 rounded-xl bg-[#E8E9EE] p-1">
+            {[
+              { id: aujourdhui, texte: "Aujourd'hui" },
+              { id: demain, texte: 'Demain' },
+            ].map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                role="tab"
+                aria-selected={jour === o.id}
+                onClick={() => setJour(o.id)}
+                className={`h-10 flex-1 rounded-lg text-sm ${jour === o.id ? 'bg-white font-bold shadow-sm' : 'font-semibold text-[#4A5060]'}`}
+              >
+                {o.texte}
+              </button>
+            ))}
           </div>
+          <p className="mb-4 text-center text-sm text-gris first-letter:uppercase">{fmtJour.format(dateDuJour(jour))}</p>
 
           {!enLigne ? (
             <p className="rounded-lg bg-[#FFF1C2] px-3 py-3 text-sm text-[#6B4E00]">
@@ -104,6 +100,11 @@ export default function FenetreEquipeDuJour({ onFermer }: { onFermer: () => void
             </p>
           ) : presents === undefined ? (
             <p className="text-gris">Chargement…</p>
+          ) : presents === 'repos' ? (
+            <p className="rounded-2xl border border-dashed border-[#C9CCD4] p-6 text-center text-gris">
+              Vous ne travaillez pas {jour === aujourdhui ? "aujourd'hui" : 'demain'}. L'équipe n'est visible que les jours où
+              vous travaillez.
+            </p>
           ) : presents === null ? (
             <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
               Impossible de charger l'équipe. Réessayez.
