@@ -32,9 +32,8 @@ export interface Correction {
 }
 export const CHAMPS_CORRECTION = 'id, employe_id, jours, motif, le, cree_le'
 
-export type TypeDocument = 'paie' | 'contrat' | 'autre'
+export type TypeDocument = 'contrat' | 'autre'
 export const TYPES_DOCUMENT: { id: TypeDocument; texte: string; pluriel: string }[] = [
-  { id: 'paie', texte: 'Fiche de paie', pluriel: 'Fiches de paie' },
   { id: 'contrat', texte: 'Contrat', pluriel: 'Contrats' },
   { id: 'autre', texte: 'Autre', pluriel: 'Autres' },
 ]
@@ -44,13 +43,12 @@ export interface DocumentEmploye {
   employe_id: string
   type: TypeDocument
   titre: string
-  mois: string | null
   chemin: string
   taille: number | null
   cree_le: string
   vu_le: string | null
 }
-export const CHAMPS_DOCUMENT = 'id, employe_id, type, titre, mois, chemin, taille, cree_le, vu_le'
+export const CHAMPS_DOCUMENT = 'id, employe_id, type, titre, chemin, taille, cree_le, vu_le'
 
 const fmtJours = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 })
 /** 12.5 → "12,5 j" ; avec signe : "+2,5 j" / "−1,25 j" */

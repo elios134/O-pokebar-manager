@@ -458,9 +458,11 @@ select test.verifier((select count(*) = 1 from public.notifications where titre 
 -- ---------- Documents ----------
 set role authenticated;
 select test.connecte('00000000-0000-0000-0000-00000000000a');
-insert into storage.objects (bucket_id, name) values ('documents', '00000000-0000-0000-0000-000000000002/paie-09.pdf');
-insert into public.documents (employe_id, type, titre, mois, chemin)
-  values ('00000000-0000-0000-0000-000000000002', 'paie', 'Fiche de paie · septembre 2026', '2026-09-01', '00000000-0000-0000-0000-000000000002/paie-09.pdf');
+insert into storage.objects (bucket_id, name) values ('documents', '00000000-0000-0000-0000-000000000002/contrat.pdf');
+insert into public.documents (employe_id, type, titre, chemin)
+  values ('00000000-0000-0000-0000-000000000002', 'contrat', 'Contrat de travail', '00000000-0000-0000-0000-000000000002/contrat.pdf');
+select test.refuse($$insert into public.documents (employe_id, type, titre, chemin)
+  values ('00000000-0000-0000-0000-000000000002', 'paie', 'Fiche de paie', 'x/y.pdf')$$, 'plus de type « fiche de paie »');
 select test.connecte('00000000-0000-0000-0000-000000000003');
 select test.verifier((select count(*) = 0 from public.documents) and (select count(*) = 0 from storage.objects where bucket_id = 'documents'),
   'un collègue ne voit pas les documents d''un autre');

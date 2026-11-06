@@ -68,7 +68,7 @@ export default function MonCompte() {
         <Link to="/mes-documents" className="flex items-center gap-3 rounded-2xl border border-ligne bg-white p-4 font-bold text-encre hover:bg-fond">
           <span className="mr-auto">
             Mes documents
-            <span className="block text-[13px] font-medium text-gris">Fiches de paie, contrat…</span>
+            <span className="block text-[13px] font-medium text-gris">Contrat, attestations…</span>
           </span>
           {nouveaux > 0 && (
             <span className="rounded-full bg-marque px-2 py-0.5 text-xs font-extrabold text-white">

@@ -117,4 +117,4 @@ Une à deux semaines plus tard, quand plus personne n'utilise l'ancienne adresse
 |---|---|
 | Nom de domaine opokebar-manager.fr (OVH) | ≈ 7 à 10 € par an |
 | Cloudflare Pages | 0 € |
-| Supabase (gratuit) | 0 €, à passer en Pro (≈ 25 $ par mois) quand le client dépose des fiches de paie et autres documents |
+| Supabase (gratuit) | 0 €, à passer en Pro (≈ 25 $ par mois) quand le client dépose des documents (contrats, arrêts maladie) |

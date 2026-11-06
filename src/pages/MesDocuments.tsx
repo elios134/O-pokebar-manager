@@ -8,7 +8,7 @@ import { supabase } from '../lib/supabase'
 
 const fmtDate = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
 
-/** Documents de l'employé connecté (fiches de paie, contrats…), déposés par l'admin. */
+/** Documents de l'employé connecté (contrats, autres), déposés par l'admin. */
 export default function MesDocuments() {
   const { profil } = useAuth()
   const [documents, setDocuments] = useState<DocumentEmploye[] | null>(null)
@@ -78,7 +78,7 @@ export default function MesDocuments() {
             <li key={d.id} className="flex items-center gap-3 rounded-2xl border border-ligne bg-white p-3">
               <span
                 className={`flex size-10 shrink-0 items-center justify-center rounded-lg text-[11px] font-extrabold ${
-                  d.type === 'paie' ? 'bg-marque-doux text-marque-fonce' : 'bg-[#E6EEFB] text-[#1D4E9E]'
+                  d.type === 'contrat' ? 'bg-[#E6EEFB] text-[#1D4E9E]' : 'bg-marque-doux text-marque-fonce'
                 }`}
               >
                 {estPdf(d.chemin) ? 'PDF' : 'IMG'}

@@ -10,7 +10,7 @@ Cas signalé : **Charlyne** à **−5 jours**.
 
 Pourquoi −5 :
 1. **Pas de solde de départ** (cause principale) : acquis = 0, donc 0 − 5 = −5. À corriger par l'admin :
-   Congés → Compteurs → « Corriger » → jours = solde de la dernière fiche de paie, motif « Solde de départ »,
+   Congés → Compteurs → « Corriger » → jours = solde réel de l'employé, motif « Solde de départ »,
    et régler « Compteur depuis le » à la date de ce solde. À faire pour **chaque employé**.
 2. **Le samedi de repos est compté** : l'app compte du lundi au samedi (règle des jours ouvrables), même si
    l'employé ne travaille jamais ce jour-là.

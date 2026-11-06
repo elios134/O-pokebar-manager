@@ -26,7 +26,7 @@ const fmtLong = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeri
 
 const photo = join(tmpdir(), 'arret-test.png')
 writeFileSync(photo, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64'))
-const pdf = join(tmpdir(), 'fiche-test.pdf')
+const pdf = join(tmpdir(), 'contrat-test.pdf')
 writeFileSync(pdf, '%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n')
 
 const db = creerBase()
@@ -89,11 +89,12 @@ db.profiles.find((p) => p.id === 'L').conges_depuis = jl(depuis)
   await page.goto(B + '/admin/employes')
   await page.getByRole('button', { name: 'Documents de Léa Martin' }).click()
   const d = page.getByRole('dialog')
+  verif('admin : plus de type « fiche de paie »', (await d.getByRole('option', { name: /paie/i }).count()) === 0)
   await d.locator('input[type=file]').setInputFiles(pdf)
   await d.getByRole('button', { name: 'Envoyer à Léa' }).click()
   await d.getByText(/envoyé à Léa/).waitFor()
   const doc = db.documents[0]
-  verif('admin : fiche de paie déposée pour Léa', doc?.employe_id === 'L' && doc.type === 'paie' && doc.titre.startsWith('Fiche de paie · ') && `documents/${doc.chemin}` in db.photos)
+  verif('admin : contrat déposé pour Léa', doc?.employe_id === 'L' && doc.type === 'contrat' && doc.titre === 'Contrat de travail' && `documents/${doc.chemin}` in db.photos)
   await page.keyboard.press('Escape')
 
   await page.goto(B + '/taches?onglet=gerer')
@@ -173,7 +174,8 @@ db.profiles.find((p) => p.id === 'L').conges_depuis = jl(depuis)
   verif('livraison affichée « Non conforme »', await attendre(page.getByText('Non conforme', { exact: true })))
 
   await page.getByRole('tab', { name: 'À commander' }).click()
-  await page.getByLabel('Produit').fill('Riz')
+  await page.getByLabel('Quantité').waitFor() // l'onglet « À commander » est bien affiché
+  await page.getByLabel('Produit', { exact: true }).fill('Riz')
   await page.getByLabel('Fournisseur').selectOption({ label: 'Metro' })
   await page.getByRole('button', { name: 'Ajouter', exact: true }).click()
   await page.getByRole('button', { name: 'Retirer Riz' }).waitFor()

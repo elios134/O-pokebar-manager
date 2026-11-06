@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { envoyerFichier, liensSignes } from '../../lib/fichiers'
-import { CHAMPS_DOCUMENT, TYPES_DOCUMENT, texteMois, type DocumentEmploye, type TypeDocument } from '../../lib/rh'
+import { CHAMPS_DOCUMENT, TYPES_DOCUMENT, type DocumentEmploye, type TypeDocument } from '../../lib/rh'
 import { supabase } from '../../lib/supabase'
 import type { Profil } from '../../lib/types'
 import ChoixFichier from '../ChoixFichier'
@@ -8,21 +8,12 @@ import Fenetre, { boutonPrincipal, champ, etiquette } from '../Fenetre'
 
 const fmtDate = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short' })
 
-/** Mois précédent au format "2026-09" (une fiche de paie concerne souvent le mois passé). */
-function moisPrecedent() {
-  const d = new Date()
-  d.setDate(1)
-  d.setMonth(d.getMonth() - 1)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-}
-
 /** Admin : documents d'un employé (déposer, ouvrir, supprimer). */
 export default function FenetreDocuments({ profil: p, onFermer }: { profil: Profil; onFermer: () => void }) {
   const [documents, setDocuments] = useState<DocumentEmploye[] | null>(null)
   const [liens, setLiens] = useState<Record<string, string>>({})
   const [fichier, setFichier] = useState<File | null>(null)
-  const [type, setType] = useState<TypeDocument>('paie')
-  const [mois, setMois] = useState(moisPrecedent)
+  const [type, setType] = useState<TypeDocument>('contrat')
   const [titre, setTitre] = useState('')
   const [erreur, setErreur] = useState<string | null>(null)
   const [ok, setOk] = useState<string | null>(null)
@@ -52,12 +43,7 @@ export default function FenetreDocuments({ profil: p, onFermer }: { profil: Prof
     void charger()
   }, [charger])
 
-  const titreFinal =
-    type === 'paie'
-      ? mois
-        ? `Fiche de paie · ${texteMois(`${mois}-01`)}`
-        : ''
-      : titre.trim() || (type === 'contrat' ? 'Contrat de travail' : '')
+  const titreFinal = titre.trim() || (type === 'contrat' ? 'Contrat de travail' : '')
 
   async function envoyer(e: FormEvent) {
     e.preventDefault()
@@ -74,7 +60,6 @@ export default function FenetreDocuments({ profil: p, onFermer }: { profil: Prof
       employe_id: p.id,
       type,
       titre: titreFinal,
-      mois: type === 'paie' ? `${mois}-01` : null,
       chemin: r.chemin,
       taille: r.taille,
     })
@@ -118,23 +103,16 @@ export default function FenetreDocuments({ profil: p, onFermer }: { profil: Prof
               ))}
             </select>
           </label>
-          {type === 'paie' ? (
-            <label className={etiquette}>
-              Mois
-              <input type="month" required value={mois} onChange={(e) => setMois(e.target.value)} className={champ} />
-            </label>
-          ) : (
-            <label className={etiquette}>
-              Titre
-              <input
-                maxLength={120}
-                placeholder={type === 'contrat' ? 'Contrat de travail' : 'Ex. : attestation'}
-                value={titre}
-                onChange={(e) => setTitre(e.target.value)}
-                className={champ}
-              />
-            </label>
-          )}
+          <label className={etiquette}>
+            Titre
+            <input
+              maxLength={120}
+              placeholder={type === 'contrat' ? 'Contrat de travail' : 'Ex. : attestation'}
+              value={titre}
+              onChange={(e) => setTitre(e.target.value)}
+              className={champ}
+            />
+          </label>
         </div>
         {erreur && (
           <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">

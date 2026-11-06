@@ -5,7 +5,7 @@ Site de gestion des plannings des employés (React + TypeScript + Vite + Tailwin
 - **Employé** : voit son planning (semaine, mois, liste), ses heures de la semaine et son prochain service ;
   demande des congés et des acomptes sur salaire, et suit la réponse ; voit son solde de congés (calculé tout
   seul : 2,5 j par mois − congés acceptés ± corrections de l'admin) ; déclare un arrêt maladie avec la photo
-  de l'arrêt de travail ; consulte ses documents (fiches de paie, contrat) ; coche les checklists du jour.
+  de l'arrêt de travail ; consulte ses documents (contrat, attestations…) ; coche les checklists du jour.
 - **Cuisine** : tout ce que fait un employé, plus l'espace « Cuisine » : DLC des produits ouverts (photo
   de l'étiquette, rappel la veille et le jour même), relevé quotidien de la température des frigos
   (responsable prévenu si hors limites, rappel à 15 h si oublié), liste des produits à commander, livraisons
